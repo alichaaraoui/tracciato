@@ -236,6 +236,13 @@ scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnviron
 renderer.setClearColor(0x000000, 0);   // PMREM leaves an opaque clear colour behind; the big word must show through
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .01, 100);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.autoRotateSpeed = .5;
+/* a controlled space: no panning, zoom within limits, and a second after you let go the view eases back */
+controls.enablePan = false; controls.zoomSpeed = .7; controls.rotateSpeed = .7;
+controls.minPolarAngle = .25; controls.maxPolarAngle = 1.75;
+let touching = false, letGo = 0;
+controls.addEventListener('start', () => touching = true);
+controls.addEventListener('end', () => { touching = false; letGo = performance.now(); });
+const home = new THREE.Spherical();
 controls.enabled = false; controls.autoRotate = true;
 scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1));
 const sun = new THREE.DirectionalLight(0xffffff, 3.2); sun.position.set(3, 5, 2); sun.castShadow = true;
@@ -318,7 +325,7 @@ function build(s) {
 
     L.appendChild(c);
   });
-  pos = 0; target = 0; vel = 0; requestAnimationFrame(() => { setPos(0); });
+  pos = 0; target = 0; vel = 0; requestAnimationFrame(() => { setPos(0); }); setTimeout(() => { if (idx < 0) show(0); }, 400);
 }
 /* on a phone the rail bends into a semicircle: cards ride an arc of radius ARC, tilting with it */
 const ARC = 300;
@@ -394,6 +401,7 @@ addEventListener('keydown', e => {
 /* ---------- landing ↔ viewer ---------- */
 const phone = innerWidth <= 700 ? 1.7 : 1;   // phones are narrow: step the camera back
 const landingPos = new THREE.Vector3(6.4, 1.6, 6.4).multiplyScalar(phone), viewPos = new THREE.Vector3(6.6, 2.8, 6.6).multiplyScalar(phone);
+controls.minDistance = viewPos.length() * .45; controls.maxDistance = viewPos.length() * 1.6;
 let camGoal = landingPos.clone(), stageGoalX = 0;
 camera.position.copy(landingPos);
 function enter(s) {
@@ -425,6 +433,11 @@ renderer.setAnimationLoop(() => {
   stage.position.x += (stageGoalX - stage.position.x) * .05;
   if (fade < 1) { fade = Math.min(1, fade + .04); const e = 1 - Math.pow(1 - fade, 3); stage.position.y = (1 - e) * -.25; clay.opacity = e; }
   clay.transparent = fade < 1;
+  if (entered && !touching && !camGoal && performance.now() - letGo > 1000) {   // ease distance, height and centre back home, keep the turn
+    home.setFromVector3(viewPos); const sp = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
+    sp.radius += (home.radius - sp.radius) * .05; sp.phi += (home.phi - sp.phi) * .05;
+    controls.target.lerp(new THREE.Vector3(), .08); camera.position.setFromSpherical(sp).add(controls.target);
+  }
   controls.update(); renderer.render(scene, camera);
 });
 const ALL = [...SETS.domes.items, ...SETS.hybrids.items];   // the landing draws at random from both sets
