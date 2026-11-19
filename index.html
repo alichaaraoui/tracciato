@@ -302,6 +302,7 @@ function snap(it) { return Promise.resolve(thumbOf(it)); }
 
 /* ---------- scroll rail ---------- */
 const L = document.getElementById('list');
+L.addEventListener('scroll', () => { if (L.scrollTop || L.scrollLeft) { L.scrollTop = 0; L.scrollLeft = 0; } });
 function build(s) {
   set = s; list = SETS[s].items; idx = -1; L.innerHTML = '';
   document.querySelectorAll('#nav .set').forEach(b => b.classList.toggle('on', b.dataset.go === s));
@@ -324,6 +325,7 @@ function arc(d, t) {
 }
 let settle;
 function onScroll() {                     // cards swell as they pass the centre line, like a wheel
+  if (L.scrollTop || L.scrollLeft) { L.scrollTop = 0; L.scrollLeft = 0; }   // positions are ours; never let the browser scroll the list too
   const horiz = innerWidth <= 700, cards = L.children, n = cards.length;
   const best = Math.max(0, Math.min(n - 1, Math.round(pos / ITEM)));
   for (let i = 0; i < n; i++) {
