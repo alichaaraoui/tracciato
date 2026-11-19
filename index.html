@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Innanzi</title>
+<meta name="description" content="Objects generated from Borromini's geometric method, and plan-section hybrids from a CycleGAN.">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #ffffff; --ink: #141413; --soft: #8d8a84; --line: #d9d6d0; --serif: Cormorant, serif; --sans: Cormorant, serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); }
+  body { font: 13px/1.4 var(--sans); font-variant-numeric: lining-nums; }
+  canvas#gl { position: fixed; inset: 0; display: block; }
+  .cap { font: 500 10px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase; }
+
+  /* ---------- poster vibe: a huge didone word behind the object, small bold serif caps spread across the page ---------- */
+  :root { --didone: Cormorant, "Trajan Pro", serif; }
+  canvas#gl { z-index: 1; }
+  #mark { position: fixed; left: 0; right: 0; top: 50%; transform: translateY(-58%) scaleY(1.32); z-index: 0; text-align: center; pointer-events: none;
+          font: 500 clamp(120px, 27vw, 460px)/.8 var(--didone); letter-spacing: -.02em; color: var(--ink);
+          transition: opacity .6s; white-space: nowrap; }
+  #mark.swap { opacity: 0; }
+  #mark.word { font-size: clamp(70px, 17vw, 300px); }
+  body.in #mark { opacity: 0; }
+  body.in #mark:not(.word) { font-size: clamp(200px, 44vw, 720px); }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+         font: 600 16px/1.2 var(--didone); letter-spacing: .03em; text-transform: uppercase; }
+  .row a, .row button { font: inherit; text-transform: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-decoration: none; padding: 0; }
+  .row a:hover, .row button:hover, .row .on { text-decoration: underline; text-underline-offset: 3px; }
+  .rows .row + .row { margin-top: 1px; } .rows + .rows { margin-top: 14px; }
+
+  #landing { position: fixed; inset: 0; z-index: 10; padding: 34px 40px; pointer-events: none; transition: opacity .9s ease; }
+  #landing > * { pointer-events: auto; }
+  #landing.gone { opacity: 0; } #landing.gone > * { pointer-events: none; }
+  #landing .top { position: absolute; left: 40px; right: 40px; top: 34px; }
+  #landing .bottom { position: absolute; left: 40px; right: 40px; bottom: 34px; display: grid; display: flex; justify-content: center; }
+  .lede { font: 400 16px/1.45 var(--didone); max-width: 380px; color: var(--ink); }
+  #landing .enter { display: flex; gap: 12px; }
+  #landing .enter button { font: 600 13px/1 var(--didone); letter-spacing: .02em; text-transform: uppercase; padding: 14px 22px; border: 1px solid var(--ink);
+                           background: var(--bg); color: var(--ink); cursor: pointer; text-align: left; transition: background .25s, color .25s; }
+  #landing .enter button:hover { background: var(--ink); color: var(--bg); }
+
+  #ui { opacity: 0; transition: opacity 1s .4s; pointer-events: none; }
+  #ui.on { opacity: 1; }
+  #ui.on > * { pointer-events: auto; } #ui.on > #tick { pointer-events: none; }
+  #nav { position: fixed; z-index: 20; top: 34px; left: 40px; right: 40px; }
+  #nav > * { white-space: nowrap; }
+  #nav .mid { position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; gap: clamp(14px, 2vw, 30px); align-items: center; opacity: 0; pointer-events: none; transition: opacity .6s; }
+  body.in #nav .mid { opacity: 1; pointer-events: auto; transition-delay: .4s; }
+  #nav .about-link { position: absolute; left: 50%; top: 0; transform: translateX(-50%); transition: opacity .4s; }
+  body.in #nav .about-link { opacity: 0; pointer-events: none; }
+  #about { position: fixed; inset: 0; z-index: 30; background: rgba(255,255,255,.96); display: grid; place-items: center; overflow: auto;
+           opacity: 0; pointer-events: none; transition: opacity .5s; padding: 90px 24px; }
+  #about.open { opacity: 1; pointer-events: auto; }
+  .about-in { max-width: 560px; font: 500 18px/1.5 var(--sans); }
+  .about-in p + p { margin-top: 16px; }
+  .about-in .quote { font: 500 clamp(30px, 4vw, 48px)/1.1 var(--didone); text-align: center; }
+  .about-in .cite { font-size: 14px; text-align: center; opacity: .6; }
+  .about-in .close { display: block; margin-top: 34px; text-align: center; font: 600 16px/1 var(--didone); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  #tools { position: fixed; z-index: 20; bottom: 34px; left: 50%; transform: translateX(-50%); gap: 30px; white-space: nowrap;
+           opacity: 0; pointer-events: none; transition: opacity .6s; }
+  body.in #tools { opacity: 1; pointer-events: auto; transition-delay: .4s; }
+  #tools label { display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 900px) { #nav .mid { font-size: 13px; } }
+    /* sliders drawn as a hairline with a small ring, like the rest of the page */
+  #tools input[type=range] { -webkit-appearance: none; appearance: none; width: 100px; height: 14px; background: transparent; cursor: pointer; }
+  #tools input[type=range]::-webkit-slider-runnable-track { height: 1px; background: var(--ink); }
+  #tools input[type=range]::-moz-range-track { height: 1px; background: var(--ink); }
+  #tools input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; margin-top: -5px; border-radius: 50%; background: var(--bg); border: 1px solid var(--ink); }
+  #tools input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--bg); border: 1px solid var(--ink); }
+  #tools .tog { opacity: .35; text-decoration: none; } #tools .tog.on { opacity: 1; }
+  /* what was generated: the plan it was built from + a few lines */
+  #info { position: fixed; z-index: 5; right: 40px; top: 50%; transform: translateY(-50%); width: 280px; display: flex; flex-direction: column; gap: 18px; transition: opacity .4s; }
+  #info.swap { opacity: 0; }
+  #plan { width: 150px; height: 150px; object-fit: contain; flex: none; }
+  #plan[src=""] { display: none; }
+  #ititle { justify-content: flex-start; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .inum { font: 500 64px/.9 var(--sans); font-variant-numeric: lining-nums; letter-spacing: -.02em; }
+  #itext { font: 500 15px/1.4 var(--sans); }
+  .row, #itext { font-variant-numeric: lining-nums; }
+
+  /* ---------- rail thumbnails: each model rendered small, black with white lines ---------- */
+const tr = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+tr.setPixelRatio(2); tr.setSize(128, 128); tr.toneMapping = THREE.ACESFilmicToneMapping;
+const ts = new THREE.Scene(); ts.environment = scene.environment;
+ts.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1)); const tsun = new THREE.DirectionalLight(0xffffff, 3.2); tsun.position.set(3, 5, 2); ts.add(tsun);
+const tcam = new THREE.OrthographicCamera(-1.45, 1.45, 1.45, -1.45, .1, 50); tcam.position.set(5, 5, 5); tcam.lookAt(0, 0, 0);   // true isometric, same for all
+const snaps = {}; let queue = Promise.resolve();
+function snap(it) {
+  return snaps[it.url] ??= (queue = queue.then(async () => {
+    const o = (await load(it.url)).clone(); ts.add(o); const [op, tp] = [clay.opacity, clay.transparent]; clay.opacity = 1; clay.transparent = false; clay.color.set(0x111113); clay.envMapIntensity = .7;
+    tr.render(ts, tcam); clay.opacity = op; clay.transparent = tp; clay.color.set(0x26262a); clay.envMapIntensity = 1.1; ts.remove(o);
+    return tr.domElement.toDataURL();
+  }));
+}
+
+/* ---------- scroll rail ---------- */
+  #rail { position: fixed; z-index: 5; top: 0; left: 0; bottom: 0; width: 150px; }
+  #rail::before, #rail::after { content: ""; position: absolute; left: 0; right: 0; height: 12%; z-index: 2; pointer-events: none; }
+  #rail::before { top: 0; background: linear-gradient(var(--bg), transparent); }
+  #rail::after { bottom: 0; background: linear-gradient(transparent, var(--bg)); }
+  #list { height: 100%; overflow: hidden; touch-action: none; cursor: grab; scrollbar-width: none; padding: calc(50vh - 42px) 0; }
+  #list::-webkit-scrollbar { display: none; }
+  .card { height: 84px; display: flex; align-items: center; padding: 0 0 0 37px; cursor: pointer;
+          transform-origin: left center; will-change: transform, opacity; }
+  .card .thumb { width: 76px; height: 76px; flex: none; display: grid; place-items: center; }
+  .card .thumb img { width: 100%; height: 100%; object-fit: contain; }
+  .card .thumb .mark { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; }
+  .card .n { font: 400 30px/1 var(--serif); }
+  .card .t { color: var(--soft); margin-top: 6px; }
+  #tick { position: fixed; z-index: 5; left: 0; width: 150px; top: calc(50% - 42px); height: 84px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); pointer-events: none; }
+  .card { position: relative; transform-style: preserve-3d; }
+  .card .tk { position: absolute; left: 0; top: 50%; height: 0; border-top: 1px solid var(--ink); transition: width .25s; }
+  .card::before, .card::after { content: ""; position: absolute; left: 0; width: 6px; border-top: 1px solid var(--line); }
+  .card::before { top: 25%; } .card::after { top: 75%; }
+
+  @media (max-width: 700px) {
+    #rail { width: 100%; top: auto; height: 150px; }
+    #list { overflow-x: scroll; overflow-y: hidden; display: flex; scroll-snap-type: x mandatory; padding: 0 calc(50vw - 60px); height: 150px; }
+    .card { flex: none; width: 120px; height: 150px; flex-direction: column; justify-content: center; padding: 0; gap: 4px; transform-origin: center bottom; }
+    .card .thumb { width: 70px; height: 70px; } .card .t { display: none; }
+    #rail::before, #rail::after { display: none; } #tick { display: none; }
+    #nav { left: 20px; right: 20px; } #tools label { display: none; } #info { right: 20px; width: 180px; } #plan { width: 90px; height: 90px; }
+    #landing .top, #landing .bottom { left: 20px; right: 20px; } #landing .bottom { grid-template-columns: 1fr; gap: 14px; } #landing .lede + .lede { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="mark" class="word">INNANZI</div>
+<nav id="nav" class="row">
+  <button class="set" data-go="domes">48 Objects</button>
+  <span class="mid"><a class="home">Index</a></span>
+  <a class="about-link" id="aboutBtn">About</a>
+  <button class="set" data-go="hybrids">24 Hybrids</button>
+</nav>
+<section id="landing"></section>
+<section id="about">
+  <div class="about-in">
+    <p class="quote">“Chi segue altri, non li va mai innanzi.”</p>
+    <p class="cite">Whoever follows others never gets ahead of them. Borromini, after Michelangelo, in the Opus Architectonicum.</p>
+    <p>Innanzi is a set of objects made from Francesco Borromini’s way of drawing. His plans start from a simple figure, two triangles or two squares, and everything else is generated from it: the niches, the pilasters, the dome. The forms here are new; the method is his.</p>
+    <p><b>48 Objects.</b> Each plan is built by code from overlapping regular figures, with apses, niches, bowed walls or star points on its sides, sometimes stretched into an oval. The figure is then carried upward into walls, entablature and a Sant’Ivo or San Carlo type dome.</p>
+    <p><b>24 Hybrids.</b> A CycleGAN trained on Roman plans and sections, never paired. Translated: the network draws the sections it imagines for a real plan. Clashed: a plan meets a section from another building. The 3D form is where both drawings agree.</p>
+    <p class="cite">Ali Chaaraoui, 2026. Rendered in three.js; models built in Blender.</p>
+    <a class="close" id="aboutClose">Close</a>
+  </div>
+</section>
+<div id="tools" class="row">
+  <label>Height <input id="cut" type="range" min="0" max="100" value="100"></label>
+  <label>Depth <input id="dep" type="range" min="0" max="100" value="100"></label>
+  <a class="tog on" id="rot">Rotate</a><a class="tog on" id="edges">Lines</a>
+</div>
+
+<div id="ui">
+  <div id="info">
+    <img id="plan" alt="">
+    <div><div class="row" id="ititle"></div><p id="itext"></p></div>
+  </div>
+  <aside id="rail"><div id="list"></div></aside>
+  <div id="tick"></div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const pad = i => String(i).padStart(2, '0');
+const SETS = {
+  domes: { desc: 'A plan figure held up through walls, giant pilasters and a continuous entablature, resolved into a Sant’Ivo or San Carlo dome and lantern.',
+           items: [...Array(48).keys()].map(i => ({ n: pad(i + 1), kind: 'Construction', url: `models/domes/object_${pad(i + 1)}.glb`, thumb: `thumbs/construction_${pad(i + 1)}.svg` })) },
+  hybrids: { desc: 'A CycleGAN trained on unpaired Roman plans and sections. Translated (T): the network draws each plan’s own sections. Clashed (C): plans crossed with unrelated sections.',
+             items: ['translated', 'clashed'].flatMap(k => [...Array(12).keys()].map(i => ({ n: pad(i), kind: k, url: `models/${k}_${pad(i)}.glb` }))) },
+};
+
+/* ---------- scene ---------- */
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+renderer.localClippingEnabled = true; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+renderer.setClearColor(0x000000, 0);   // PMREM leaves an opaque clear colour behind; the big word must show through
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .01, 100);
+const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.autoRotateSpeed = .5;
+controls.enabled = false; controls.autoRotate = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 3.2); sun.position.set(3, 5, 2); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2 }); sun.shadow.radius = 6; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({ opacity: .1 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -1.01; ground.receiveShadow = true; scene.add(ground);
+
+const cutY = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1.01), cutZ = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1.01);
+const clay = new THREE.MeshPhysicalMaterial({ color: 0x26262a, roughness: .42, clearcoat: .25, clearcoatRoughness: .3,
+                                              envMapIntensity: 1.1, side: THREE.DoubleSide, clippingPlanes: [cutY, cutZ] });
+const ink = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .7, clippingPlanes: [cutY, cutZ] });
+const loader = new GLTFLoader(), cache = {};
+const stage = new THREE.Group(); scene.add(stage);
+let current = null, list = [], idx = -1, set = null, entered = false;
+
+function fit(obj) {                       // every model fits a 2-unit box, standing on the ground
+  const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const s = 2 / Math.max(size.x, size.y, size.z); obj.scale.setScalar(s); obj.position.set(-c.x * s, -box.min.y * s - 1, -c.z * s);
+}
+function load(url) {
+  if (!cache[url]) cache[url] = new Promise(res => loader.load(url, g => {
+    const meshes = []; g.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
+    for (const o of meshes) { o.material = clay; o.castShadow = o.receiveShadow = true;
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 20), ink); e.userData.edge = true; o.add(e); }
+    fit(g.scene); res(g.scene);
+  }));
+  return cache[url];
+}
+const META = fetch('objects_meta.json').then(r => r.json());
+const HYB = { translated: 'A real Roman plan, given to the network, which drew the sections it imagined for it. The form is where plan and imagined sections agree.',
+              clashed: 'A Roman plan crossed with a section from a different building. Neither drawing was meant for the other; the form is what both allow.' };
+async function info(it, i) {
+  const box = document.getElementById('info'); box.classList.add('swap');
+  const meta = set === 'domes' ? (await META)[i] : null;
+  setTimeout(() => {
+    document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : '';
+    document.getElementById('ititle').innerHTML = `<b class="inum">${it.n}</b><span>${set === 'domes' ? 'Object · plan and construction' : it.kind + ' hybrid'}</span>`;
+    document.getElementById('itext').textContent = meta ? `${meta.plan} ${meta.dome} ${meta.ext}` : HYB[it.kind];
+    box.classList.remove('swap');
+  }, 200);
+}
+const markEl = document.getElementById('mark');
+function setMark(t) { if (markEl.textContent === t) return; markEl.classList.add('swap'); setTimeout(() => { markEl.textContent = t; markEl.classList.toggle('word', t.length > 4); markEl.classList.remove('swap'); }, 250); }
+let fade = 1;                             // models rise in on change
+async function show(i) {
+  if (i === idx) return; idx = i; const it = list[i];
+  if (entered) info(it, i);
+  const obj = await load(it.url); if (list[idx] !== it) return;
+  if (current) stage.remove(current); current = obj; stage.add(obj); fade = 0;
+}
+
+/* ---------- rail thumbnails: each model rendered small, black with white lines ---------- */
+const tr = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+tr.setPixelRatio(2); tr.setSize(128, 128); tr.toneMapping = THREE.ACESFilmicToneMapping;
+const ts = new THREE.Scene(); ts.environment = scene.environment;
+ts.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1)); const tsun = new THREE.DirectionalLight(0xffffff, 3.2); tsun.position.set(3, 5, 2); ts.add(tsun);
+const tcam = new THREE.OrthographicCamera(-1.45, 1.45, 1.45, -1.45, .1, 50); tcam.position.set(5, 5, 5); tcam.lookAt(0, 0, 0);   // true isometric, same for all
+const snaps = {}; let queue = Promise.resolve();
+function snap(it) {
+  return snaps[it.url] ??= (queue = queue.then(async () => {
+    const o = (await load(it.url)).clone(); ts.add(o); const [op, tp] = [clay.opacity, clay.transparent]; clay.opacity = 1; clay.transparent = false; clay.color.set(0x111113); clay.envMapIntensity = .7;
+    tr.render(ts, tcam); clay.opacity = op; clay.transparent = tp; clay.color.set(0x26262a); clay.envMapIntensity = 1.1; ts.remove(o);
+    return tr.domElement.toDataURL();
+  }));
+}
+
+/* ---------- scroll rail ---------- */
+const L = document.getElementById('list');
+function build(s) {
+  set = s; list = SETS[s].items; idx = -1; L.innerHTML = '';
+  document.querySelectorAll('#nav .set').forEach(b => b.classList.toggle('on', b.dataset.go === s));
+  
+  list.forEach((it, i) => {
+    const c = document.createElement('div'); c.className = 'card';
+    c.innerHTML = `<i class="tk"></i><div class="thumb"><span class="mark"></span></div>`;
+    snap(it).then(src => { c.querySelector(".thumb").innerHTML = `<img src="${src}" alt="">`; });
+
+    L.appendChild(c);
+  });
+  pos = 0; target = 0; vel = 0; requestAnimationFrame(() => { setPos(0); });
+}
+let settle;
+function onScroll() {                     // cards swell as they pass the centre line, like a wheel
+  const r = L.getBoundingClientRect(), horiz = innerWidth <= 700, mid = horiz ? r.left + r.width / 2 : r.top + r.height / 2;
+  let best = 0, bd = 1e9;
+  [...L.children].forEach((c, i) => {
+    const b = c.getBoundingClientRect(), d = (horiz ? b.left + b.width / 2 : b.top + b.height / 2) - mid, a = Math.abs(d);
+    const t = Math.min(1, a / (horiz ? 260 : innerHeight / 2));
+    c.style.transform = horiz ? `scale(${1 - .35 * t})` : `perspective(500px) rotateX(${Math.max(-80, Math.min(80, -d / 6))}deg) scale(${1.1 - .3 * t})`;
+    c.style.opacity = Math.max(.08, Math.cos(Math.min(1.45, a / 420)));
+    c.querySelector('.tk').style.width = (a < 42 ? 26 : 10) + 'px';
+    if (a < bd) { bd = a; best = i; }
+  });
+  clearTimeout(settle); settle = setTimeout(() => show(best), 120);
+}
+/* wheel physics modelled on iOS pickers: momentum with 0.998/ms deceleration, projected to the
+   nearest item, then a critically damped spring lands on it (~0.35 s). */
+const ITEM = 84, horiz = () => innerWidth <= 700;
+let pos = 0, vel = 0, target = 0, mode = 'rest', lastT = 0, lastWheel = 0, dragged = false;
+const maxPos = () => (list.length - 1) * ITEM;
+const nearest = p => Math.max(0, Math.min(list.length - 1, Math.round(p / ITEM)));
+function setPos(p) { pos = p; if (horiz()) L.scrollLeft = p / ITEM * 120; else L.scrollTop = p; onScroll(); }
+function goTo(i, v = vel) { target = nearest(i * ITEM) * ITEM; vel = v; mode = 'spring'; }
+function release(v) {                                  // v in px/s; iOS projection: v/1000 * d/(1-d)
+  const projected = pos + v / 1000 * .998 / (1 - .998);
+  goTo(Math.round(projected / ITEM), v);
+}
+function physics(t) {
+  const dt = Math.min(.032, (t - lastT) / 1000 || .016); lastT = t;
+  if (mode === 'spring') {
+    const k = 170, c = 2 * Math.sqrt(k);                // critically damped
+    const a = -k * (pos - target) - c * vel; vel += a * dt; let p = pos + vel * dt;
+    if (Math.abs(p - target) < .3 && Math.abs(vel) < 4) { p = target; vel = 0; mode = 'rest'; }
+    setPos(p);
+  } else if (mode === 'wheel' && t - lastWheel > 70) release(vel);
+  requestAnimationFrame(physics);
+}
+requestAnimationFrame(physics);
+const rubber = p => p < 0 ? p * .35 : p > maxPos() ? maxPos() + (p - maxPos()) * .35 : p;
+L.addEventListener('wheel', e => {
+  e.preventDefault(); const d = (Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX) * (e.deltaMode === 1 ? 33 : 1);
+  if (Math.abs(d) >= 50 && Number.isInteger(d)) { goTo(Math.round(target / ITEM) + Math.sign(d), 0); return; }   // mouse notch: one item
+  const now = performance.now(); const dtw = Math.max(8, now - lastWheel); lastWheel = now;
+  vel = .6 * vel + .4 * (d / dtw * 1000); mode = 'wheel'; setPos(rubber(pos + d));
+}, { passive: false });
+let dragY = 0, dragT = 0;
+L.addEventListener('pointerdown', e => { dragged = false; mode = 'drag'; vel = 0; dragY = horiz() ? e.clientX : e.clientY; dragT = performance.now(); L.setPointerCapture(e.pointerId); });
+L.addEventListener('pointermove', e => {
+  if (mode !== 'drag') return; const y = horiz() ? e.clientX : e.clientY, now = performance.now(), d = (dragY - y) * (horiz() ? ITEM / 120 : 1);
+  if (Math.abs(d) > 0) dragged = dragged || Math.abs(d) > 2;
+  vel = .7 * vel + .3 * (d / Math.max(8, now - dragT) * 1000); dragY = y; dragT = now; setPos(rubber(pos + d));
+});
+const up = e => {
+  if (mode !== 'drag') return;
+  if (!dragged) { mode = 'rest'; const c = [...L.children].find(c => { const b = c.getBoundingClientRect(); return e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom; });
+                  if (c) return goTo([...L.children].indexOf(c), 0); }
+  if (performance.now() - dragT > 80) vel = 0; release(vel);
+};
+L.addEventListener('pointerup', up); L.addEventListener('pointercancel', up);
+addEventListener('keydown', e => {
+  if (!entered) return;
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+  if (step) { e.preventDefault(); goTo(Math.round(target / ITEM) + step, 0); }
+});
+
+/* ---------- landing ↔ viewer ---------- */
+const landingPos = new THREE.Vector3(6.4, 1.6, 6.4), viewPos = new THREE.Vector3(6.6, 2.8, 6.6);
+let camGoal = landingPos.clone(), stageGoalX = 0;
+camera.position.copy(landingPos);
+function enter(s) {
+  entered = true; document.body.classList.add('in'); document.getElementById('landing').classList.add('gone'); document.getElementById('ui').classList.add('on');
+  controls.enabled = true; camGoal = viewPos.clone(); stageGoalX = 0; build(s);
+}
+function leave() {
+  entered = false; unmark(); idx = -1; shuffle(); document.body.classList.remove('in'); document.getElementById('landing').classList.remove('gone'); document.getElementById('ui').classList.remove('on');
+  controls.enabled = false; camGoal = landingPos.clone(); stageGoalX = 0; setMark('INNANZI');
+}
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => entered ? build(b.dataset.go) : enter(b.dataset.go));
+document.querySelector('#nav .home').onclick = leave;
+const about = document.getElementById('about');
+document.getElementById('aboutBtn').onclick = () => about.classList.add('open');
+document.getElementById('aboutClose').onclick = () => about.classList.remove('open');
+addEventListener('keydown', e => { if (e.key === 'Escape') about.classList.remove('open'); });
+function unmark() { document.querySelectorAll('#nav .set').forEach(b => b.classList.remove('on')); }
+
+/* ---------- tools ---------- */
+const slider = (id, plane) => document.getElementById(id).oninput = e => plane.constant = -1 + 2.02 * e.target.value / 100;
+slider('cut', cutY); slider('dep', cutZ);
+document.getElementById('rot').onclick = e => { e.preventDefault(); controls.autoRotate = !controls.autoRotate; e.target.classList.toggle('on', controls.autoRotate); };
+document.getElementById('edges').onclick = e => { ink.visible = !ink.visible; e.target.classList.toggle('on', ink.visible); };
+
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); onScroll(); });
+renderer.setAnimationLoop(() => {
+  if (camGoal) { camera.position.lerp(camGoal, .05); if (camera.position.distanceTo(camGoal) < .01) camGoal = null; }
+  stage.position.x += (stageGoalX - stage.position.x) * .05;
+  if (fade < 1) { fade = Math.min(1, fade + .04); const e = 1 - Math.pow(1 - fade, 3); stage.position.y = (1 - e) * -.25; clay.opacity = e; }
+  clay.transparent = fade < 1;
+  controls.update(); renderer.render(scene, camera);
+});
+const ALL = [...SETS.domes.items, ...SETS.hybrids.items];   // the landing draws at random from both sets
+const shuffle = () => { list = ALL; set = 'landing'; let j; do j = Math.floor(Math.random() * ALL.length); while (j === idx); show(j); };
+shuffle(); setInterval(() => { if (!entered && !document.hidden) shuffle(); }, 5000);
+</script>
+</body>
+</html>
