@@ -446,17 +446,19 @@ async function intro() {
   if (run !== introRun) return layer.remove();
   /* fly out: each thumbnail leaves from where it now sits on the ring to its card on the dial */
   const cards = [...L.children], centre = idxOr0(); let longest = 0;
+  /* lay every card out on the dial for a moment (even the off-screen ones) so each thumbnail has a real seat to fly to */
+  const horizNow = innerWidth <= 700;
+  cards.forEach((c, i) => { const d = i * ITEM - pos; c.style.visibility = 'visible'; c.style.transform = horizNow ? arc(d) : dial(d); });
+  const seats = cards.map(c => c.querySelector('.thumb').getBoundingClientRect());
+  onScroll();
   imgs.forEach((im, i) => {
     const a = (-90 + i / n * 360 + TURN) * Math.PI / 180, x = cx + R * Math.cos(a) - size / 2, y = cy + R * Math.sin(a) - size / 2;
     im.getAnimations().forEach(an => an.cancel()); im.style.rotate = '0deg'; im.style.opacity = 1; im.style.scale = '1';
     im.style.position = 'fixed'; im.style.left = '0'; im.style.top = '0'; im.style.transform = `translate(${x}px, ${y}px)`; layer.appendChild(im);
-    const th = cards[i]?.querySelector('.thumb'), r = th && cards[i].style.visibility !== 'hidden' ? th.getBoundingClientRect() : null;
-    const onRail = r && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
-    const to = onRail ? `translate(${r.left + r.width / 2 - size / 2}px, ${r.top + r.height / 2 - size / 2}px) scale(${r.width / size})`
-                      : `translate(${cx - size / 2}px, ${cy - size / 2}px) scale(.2)`;
-    const delay = onRail ? Math.abs(i - centre) * 45 : 0, dur = onRail ? 900 : 600;
+    const r = seats[i], to = `translate(${r.left + r.width / 2 - size / 2}px, ${r.top + r.height / 2 - size / 2}px) scale(${r.width / size})`;
+    const delay = i * Math.max(22, 900 / n), dur = 850;                 // one after another, in order, every one to its own seat
     longest = Math.max(longest, delay + dur);
-    im.animate([{ transform: `translate(${x}px, ${y}px)`, opacity: 1 }, { transform: to, opacity: onRail ? (+cards[i].style.opacity || 1) : 0 }],
+    im.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: to }],
                { duration: dur, delay, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
   });
   ring.remove();
