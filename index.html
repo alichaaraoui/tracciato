@@ -422,22 +422,26 @@ async function intro() {
   document.querySelector('.intro')?.remove();
   rail.style.transition = 'none'; rail.style.opacity = 0; tick.style.opacity = 0;
   document.body.classList.add('loading'); stage.visible = false;
-  const items = list.slice(), n = items.length, size = innerWidth <= 700 ? 54 : 74;
-  const R = Math.min(innerWidth, innerHeight) * (innerWidth <= 700 ? .34 : .3), cx = innerWidth / 2, cy = innerHeight / 2;
+  /* the loading ring is a wide oval filling the screen, so the models have room between them */
+  const items = list.slice(), n = items.length, cx = innerWidth / 2, cy = innerHeight / 2;
+  const RY = innerHeight * .36, RX = Math.min(innerWidth * .4, RY * 2.2), R = RY, SX = RX / RY;
+  const perim = Math.PI * (3 * (RX + RY) - Math.sqrt((3 * RX + RY) * (RX + 3 * RY)));
+  const size = Math.round(Math.min(innerWidth <= 700 ? 54 : 74, perim / n * .7));
   /* decode every thumbnail first, so nothing pops in mid-spin */
   const imgs = items.map(it => { const im = new Image(); im.src = thumbOf(it); im.style.width = im.style.height = size + 'px'; return im; });
   await Promise.all(imgs.map(im => im.decode().catch(() => {})));
   if (run !== introRun) return;
   const layer = document.createElement('div'); layer.className = 'intro';
-  const ring = document.createElement('div'); ring.className = 'ring'; ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
-  layer.appendChild(ring); document.body.appendChild(layer);
+  const oval = document.createElement('div'); oval.className = 'ring'; oval.style.left = cx + 'px'; oval.style.top = cy + 'px'; oval.style.transform = `scale(${SX}, 1)`;
+  const ring = document.createElement('div'); ring.className = 'slot'; oval.appendChild(ring);
+  layer.appendChild(oval); document.body.appendChild(layer);
   /* a loading wheel: the models arrive one after another around the circle while the ring grows and turns
      (compositor-driven, so it stays smooth while the 3D model loads underneath) */
   const STEP = Math.max(28, 1500 / n), LOAD = STEP * n, SPIN = LOAD + 500, TURN = 140, EASE = 'cubic-bezier(.3,.6,.3,1)';
   imgs.forEach((im, i) => {
     const a = -90 + i / n * 360, h = document.createElement('div'); h.className = 'slot';
     h.style.transform = `rotate(${a}deg) translateX(${R}px) rotate(${-a}deg)`;
-    im.style.transform = `translate(${-size / 2}px, ${-size / 2}px)`; im.style.opacity = 0; h.appendChild(im); ring.appendChild(h);
+    im.style.transform = `translate(${-size / 2}px, ${-size / 2}px) scale(${1 / SX}, 1)`; im.style.opacity = 0; h.appendChild(im); ring.appendChild(h);
     im.animate([{ opacity: 0, scale: '.4' }, { opacity: 1, scale: '1' }], { duration: 380, delay: i * STEP, easing: 'cubic-bezier(.2,.8,.2,1.2)', fill: 'forwards' });
     im.animate([{ rotate: '0deg' }, { rotate: `${-TURN}deg` }], { duration: SPIN, easing: EASE, fill: 'forwards', composite: 'add' });
   });
@@ -452,7 +456,7 @@ async function intro() {
   const seats = cards.map(c => c.querySelector('.thumb').getBoundingClientRect());
   onScroll();
   imgs.forEach((im, i) => {
-    const a = (-90 + i / n * 360 + TURN) * Math.PI / 180, x = cx + R * Math.cos(a) - size / 2, y = cy + R * Math.sin(a) - size / 2;
+    const a = (-90 + i / n * 360 + TURN) * Math.PI / 180, x = cx + RX * Math.cos(a) - size / 2, y = cy + RY * Math.sin(a) - size / 2;
     im.getAnimations().forEach(an => an.cancel()); im.style.rotate = '0deg'; im.style.opacity = 1; im.style.scale = '1';
     im.style.position = 'fixed'; im.style.left = '0'; im.style.top = '0'; im.style.transform = `translate(${x}px, ${y}px)`; layer.appendChild(im);
     const r = seats[i], to = `translate(${r.left + r.width / 2 - size / 2}px, ${r.top + r.height / 2 - size / 2}px) scale(${r.width / size})`;
@@ -461,7 +465,7 @@ async function intro() {
     im.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: to }],
                { duration: dur, delay, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
   });
-  ring.remove();
+  oval.remove();
   setTimeout(() => { if (run !== introRun) return; rail.style.transition = 'opacity .3s'; rail.style.opacity = 1; tick.style.opacity = '';
                      document.body.classList.remove('loading'); stage.visible = true; trans = 0; if (current) current.scale.setScalar(.0001);
                      layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' }).onfinish = () => layer.remove(); }, longest);
