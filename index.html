@@ -19,7 +19,7 @@
   canvas#gl { z-index: 1; }
   /* the title is drawn twice from the same code: solid black behind the model, and on top a white hairline that is
      cut away wherever it falls on the letters themselves, so it only shows where it crosses the black model */
-  .title { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity .6s; }
+  .title { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity .9s cubic-bezier(.45,0,.15,1); }
   #title0 { z-index: 0; } #title1 { z-index: 2; }
   .title.swap, body.in .title { opacity: 0; }
   .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
@@ -29,7 +29,7 @@
 
   .rows .row + .row { margin-top: 1px; } .rows + .rows { margin-top: 14px; }
 
-  #landing { position: fixed; inset: 0; z-index: 10; padding: 34px 40px; pointer-events: none; transition: opacity .9s ease; }
+  #landing { position: fixed; inset: 0; z-index: 10; padding: 34px 40px; pointer-events: none; transition: opacity 1.1s cubic-bezier(.45,0,.15,1); }
   #landing > * { pointer-events: auto; }
   #landing.gone { opacity: 0; } #landing.gone > * { pointer-events: none; }
   #landing .top { position: absolute; left: 40px; right: 40px; top: 34px; }
@@ -40,7 +40,7 @@
                            background: var(--bg); color: var(--ink); cursor: pointer; text-align: left; transition: background .25s, color .25s; }
   #landing .enter button:hover { background: var(--ink); color: var(--bg); }
 
-  #ui { opacity: 0; transition: opacity 1s .4s; pointer-events: none; }
+  #ui { opacity: 0; transition: opacity .9s cubic-bezier(.45,0,.15,1) .35s; pointer-events: none; }
   #ui.on { opacity: 1; }
   #ui.on > * { pointer-events: auto; } #ui.on > #tick { pointer-events: none; }
   #nav { position: fixed; z-index: 20; top: 34px; left: 40px; right: 40px; }
@@ -97,8 +97,12 @@
   .card .thumb .mark { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; }
   .card .n { font: 400 30px/1 var(--serif); }
   .card .t { color: var(--soft); margin-top: 6px; }
+  body.loading #info, body.loading #tools, body.loading #nav .mid { opacity: 0 !important; transition: none; }
+  #info, #tools { transition: opacity .8s cubic-bezier(.45,0,.15,1); }
   .intro { position: fixed; inset: 0; z-index: 15; pointer-events: none; }
-  .intro img { position: fixed; left: 0; top: 0; object-fit: contain; will-change: transform; }
+  .intro img { object-fit: contain; will-change: transform; display: block; }
+  .intro .ring { position: fixed; width: 0; height: 0; will-change: transform, opacity; }
+  .intro .slot { position: absolute; left: 0; top: 0; width: 0; height: 0; }
   #tick { position: fixed; z-index: 5; left: 0; width: 190px; top: calc(50% - 42px); height: 84px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); pointer-events: none; }
   .card { position: relative; transform-style: preserve-3d; }
   .card .tk { position: absolute; left: 0; top: 50%; height: 0; border-top: 1px solid var(--ink); transition: width .25s; }
@@ -399,52 +403,76 @@ addEventListener('keydown', e => {
 
 /* ---------- landing ↔ viewer ---------- */
 const phone = innerWidth <= 700 ? 1.7 : 1;   // phones are narrow: step the camera back
+/* landing: the camera drifts slowly round the model and gently up and down; closer, so the forms read larger */
+const LAND_R = 7.4 * phone;
+function drift(now) { const t = now / 1000, a = Math.PI / 4 + t * .12, h = 1.2 + Math.sin(t * .35) * .9;
+  return new THREE.Vector3(Math.cos(a) * LAND_R, h * phone, Math.sin(a) * LAND_R); }
 const landingPos = new THREE.Vector3(6.4, 1.6, 6.4).multiplyScalar(phone), viewPos = new THREE.Vector3(6.6, 2.8, 6.6).multiplyScalar(phone);
 controls.minDistance = viewPos.length() * .45; controls.maxDistance = viewPos.length() * 1.6;
-let camGoal = landingPos.clone(), stageGoalX = 0;
+let camGoal = null, stageGoalX = 0, camFrom = new THREE.Vector3(), tgtFrom = new THREE.Vector3(), camT0 = 0;
+const CAM_MS = 1500, easeIO = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function moveCam(to) { camGoal = to.clone(); camFrom.copy(camera.position); tgtFrom.copy(controls.target); camT0 = performance.now(); }
 camera.position.copy(landingPos);
 /* entering a set: its thumbnails gather into a spinning wheel in the centre, then each flies out to its
    place on the dial */
 let introRun = 0;
-function intro() {
+async function intro() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const run = ++introRun, rail = document.getElementById('rail'), tick = document.getElementById('tick');
   document.querySelector('.intro')?.remove();
   rail.style.transition = 'none'; rail.style.opacity = 0; tick.style.opacity = 0;
-  const layer = document.createElement('div'); layer.className = 'intro'; document.body.appendChild(layer);
+  document.body.classList.add('loading'); stage.visible = false;
   const items = list.slice(), n = items.length, size = innerWidth <= 700 ? 54 : 74;
   const R = Math.min(innerWidth, innerHeight) * (innerWidth <= 700 ? .34 : .3), cx = innerWidth / 2, cy = innerHeight / 2;
-  const imgs = items.map(it => { const im = new Image(); im.src = thumbOf(it); im.style.width = im.style.height = size + 'px'; layer.appendChild(im); return im; });
-  const SPIN = 1300, t0 = performance.now();
-  const place = (im, x, y, s) => im.style.transform = `translate(${(x - size / 2).toFixed(1)}px, ${(y - size / 2).toFixed(1)}px) scale(${s.toFixed(3)})`;
-  (function spin(now) {
-    if (run !== introRun) return layer.remove();
-    const t = Math.min(1, (now - t0) / SPIN), grow = 1 - Math.pow(1 - Math.min(1, t * 2.2), 3), turn = (1 - Math.pow(1 - t, 2)) * Math.PI * 1.2;
-    imgs.forEach((im, i) => { const a = -Math.PI / 2 + i / n * Math.PI * 2 + turn; place(im, cx + R * grow * Math.cos(a), cy + R * grow * Math.sin(a), .4 + .6 * grow); });
-    if (t < 1) return requestAnimationFrame(spin);
-    const cards = [...L.children]; let longest = 0;
-    imgs.forEach((im, i) => {
-      const a = -Math.PI / 2 + i / n * Math.PI * 2 + turn, from = `translate(${(cx + R * Math.cos(a) - size / 2).toFixed(1)}px, ${(cy + R * Math.sin(a) - size / 2).toFixed(1)}px) scale(1)`;
-      const th = cards[i]?.querySelector('.thumb'), r = th && cards[i].style.visibility !== 'hidden' ? th.getBoundingClientRect() : null;
-      const onRail = r && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
-      const to = onRail ? `translate(${(r.left + r.width / 2 - size / 2).toFixed(1)}px, ${(r.top + r.height / 2 - size / 2).toFixed(1)}px) scale(${(r.width / size).toFixed(3)})` : `translate(${(cx - size / 2).toFixed(1)}px, ${(cy - size / 2).toFixed(1)}px) scale(.2)`;
-      const delay = (onRail ? Math.abs(i - idxOr0()) : n) * 28, dur = 750;
-      longest = Math.max(longest, delay + dur);
-      im.animate([{ transform: from, opacity: 1 }, { transform: to, opacity: onRail ? +cards[i].style.opacity || 1 : 0 }],
-                 { duration: dur, delay, easing: 'cubic-bezier(.65,0,.2,1)', fill: 'forwards' });
-    });
-    setTimeout(() => { if (run !== introRun) return; rail.style.transition = 'opacity .25s'; rail.style.opacity = 1; tick.style.opacity = ''; setTimeout(() => layer.remove(), 260); }, longest);
-  })(t0);
+  /* decode every thumbnail first, so nothing pops in mid-spin */
+  const imgs = items.map(it => { const im = new Image(); im.src = thumbOf(it); im.style.width = im.style.height = size + 'px'; return im; });
+  await Promise.all(imgs.map(im => im.decode().catch(() => {})));
+  if (run !== introRun) return;
+  const layer = document.createElement('div'); layer.className = 'intro';
+  const ring = document.createElement('div'); ring.className = 'ring'; ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
+  layer.appendChild(ring); document.body.appendChild(layer);
+  /* a loading wheel: the models arrive one after another around the circle while the ring grows and turns
+     (compositor-driven, so it stays smooth while the 3D model loads underneath) */
+  const STEP = Math.max(28, 1500 / n), LOAD = STEP * n, SPIN = LOAD + 500, TURN = 140, EASE = 'cubic-bezier(.3,.6,.3,1)';
+  imgs.forEach((im, i) => {
+    const a = -90 + i / n * 360, h = document.createElement('div'); h.className = 'slot';
+    h.style.transform = `rotate(${a}deg) translateX(${R}px) rotate(${-a}deg)`;
+    im.style.transform = `translate(${-size / 2}px, ${-size / 2}px)`; im.style.opacity = 0; h.appendChild(im); ring.appendChild(h);
+    im.animate([{ opacity: 0, scale: '.4' }, { opacity: 1, scale: '1' }], { duration: 380, delay: i * STEP, easing: 'cubic-bezier(.2,.8,.2,1.2)', fill: 'forwards' });
+    im.animate([{ rotate: '0deg' }, { rotate: `${-TURN}deg` }], { duration: SPIN, easing: EASE, fill: 'forwards', composite: 'add' });
+  });
+  ring.animate([{ transform: 'rotate(0deg) scale(.55)' }, { transform: `rotate(${TURN}deg) scale(1)` }], { duration: SPIN, easing: EASE, fill: 'forwards' });
+  await new Promise(r => setTimeout(r, SPIN));
+  if (run !== introRun) return layer.remove();
+  /* fly out: each thumbnail leaves from where it now sits on the ring to its card on the dial */
+  const cards = [...L.children], centre = idxOr0(); let longest = 0;
+  imgs.forEach((im, i) => {
+    const a = (-90 + i / n * 360 + TURN) * Math.PI / 180, x = cx + R * Math.cos(a) - size / 2, y = cy + R * Math.sin(a) - size / 2;
+    im.getAnimations().forEach(an => an.cancel()); im.style.rotate = '0deg'; im.style.opacity = 1; im.style.scale = '1';
+    im.style.position = 'fixed'; im.style.left = '0'; im.style.top = '0'; im.style.transform = `translate(${x}px, ${y}px)`; layer.appendChild(im);
+    const th = cards[i]?.querySelector('.thumb'), r = th && cards[i].style.visibility !== 'hidden' ? th.getBoundingClientRect() : null;
+    const onRail = r && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+    const to = onRail ? `translate(${r.left + r.width / 2 - size / 2}px, ${r.top + r.height / 2 - size / 2}px) scale(${r.width / size})`
+                      : `translate(${cx - size / 2}px, ${cy - size / 2}px) scale(.2)`;
+    const delay = onRail ? Math.abs(i - centre) * 45 : 0, dur = onRail ? 900 : 600;
+    longest = Math.max(longest, delay + dur);
+    im.animate([{ transform: `translate(${x}px, ${y}px)`, opacity: 1 }, { transform: to, opacity: onRail ? (+cards[i].style.opacity || 1) : 0 }],
+               { duration: dur, delay, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
+  });
+  ring.remove();
+  setTimeout(() => { if (run !== introRun) return; rail.style.transition = 'opacity .3s'; rail.style.opacity = 1; tick.style.opacity = '';
+                     document.body.classList.remove('loading'); stage.visible = true; trans = 0; if (current) current.scale.setScalar(.0001);
+                     layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' }).onfinish = () => layer.remove(); }, longest);
 }
 const idxOr0 = () => Math.max(0, Math.round(pos / ITEM));
 function enter(s) {
   entered = true; document.body.classList.add('in'); document.getElementById('landing').classList.add('gone'); document.getElementById('ui').classList.add('on');
-  controls.enabled = true; camGoal = viewPos.clone(); stageGoalX = 0; build(s); requestAnimationFrame(() => requestAnimationFrame(intro));
+  controls.enabled = true; moveCam(viewPos); stageGoalX = 0; build(s); requestAnimationFrame(() => requestAnimationFrame(intro));
 }
 function leave() {
-  introRun++; document.querySelector('.intro')?.remove(); document.getElementById('rail').style.opacity = ''; document.getElementById('tick').style.opacity = '';
+  introRun++; document.querySelector('.intro')?.remove(); document.body.classList.remove('loading'); stage.visible = true; document.getElementById('rail').style.opacity = ''; document.getElementById('tick').style.opacity = '';
   entered = false; unmark(); idx = -1; shuffle(); document.body.classList.remove('in'); document.getElementById('landing').classList.remove('gone'); document.getElementById('ui').classList.remove('on');
-  controls.enabled = false; camGoal = landingPos.clone(); stageGoalX = 0; setMark('TRACCIATO');
+  controls.enabled = false; moveCam(drift(performance.now())); stageGoalX = 0; setMark('TRACCIATO');
 }
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { if (entered) { build(b.dataset.go); requestAnimationFrame(() => requestAnimationFrame(intro)); } else enter(b.dataset.go); });
 document.querySelector('#nav .home').onclick = leave;
@@ -467,7 +495,13 @@ document.getElementById('edges').onclick = e => { ink.visible = !ink.visible; e.
 
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); onScroll(); });
 renderer.setAnimationLoop(() => {
-  if (camGoal) { camera.position.lerp(camGoal, .05); if (camera.position.distanceTo(camGoal) < .01) camGoal = null; }
+  const now = performance.now();
+  if (camGoal) {
+    const k = easeIO(Math.min(1, (now - camT0) / CAM_MS));
+    if (!entered) camGoal.copy(drift(now));                      // land on the moving landing orbit, not a fixed point
+    camera.position.lerpVectors(camFrom, camGoal, k); controls.target.lerpVectors(tgtFrom, new THREE.Vector3(), k);
+    if (k >= 1) camGoal = null;
+  } else if (!entered) { camera.position.copy(drift(now)); controls.target.set(0, 0, 0); }
   stage.position.x += (stageGoalX - stage.position.x) * .05;
   if (trans < 1) {
     trans = Math.min(1, trans + 1 / 55);
