@@ -271,7 +271,7 @@ async function info(it, i) {
   const box = document.getElementById('info'); box.classList.add('swap');
   const meta = set === 'domes' ? (await META)[i] : null, hmeta = set === 'domes' ? null : (await HMETA)[`${it.kind}_${it.n}`];
   setTimeout(() => {
-    document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : '';
+    document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : `plans/hybrid_${it.n}.png`;
     document.getElementById('ititle').innerHTML = `<b class="inum">${it.n}</b><span>${set === 'domes' ? 'Object · plan and construction' : it.kind + ' hybrid'}</span>`;
     document.getElementById('itext').textContent = meta ? `${meta.plan} ${meta.dome} ${meta.ext}` : (hmeta || HYB[it.kind]);
     box.classList.remove('swap');
