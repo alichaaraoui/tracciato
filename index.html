@@ -20,9 +20,12 @@
   #mark { position: fixed; left: 0; right: 0; top: 50%; transform: translateY(-58%) scaleY(1.32); z-index: 0; text-align: center; pointer-events: none;
           font: 500 clamp(120px, 27vw, 460px)/.8 var(--didone); letter-spacing: -.02em; color: var(--ink);
           transition: opacity .6s; white-space: nowrap; }
-  #mark.swap { opacity: 0; }
-  #mark.word { font-size: clamp(70px, 17vw, 300px); }
-  body.in #mark { opacity: 0; }
+  #mark.swap, #mark2.swap { opacity: 0; }
+  /* the title stays behind the model; a hairline copy on top keeps it readable where the model covers it */
+  #mark2 { position: fixed; left: 0; right: 0; top: 50%; z-index: 2; text-align: center; pointer-events: none; white-space: nowrap;
+           transform: translateY(-58%) scaleY(1.32); font: 500 clamp(120px, 27vw, 460px)/.8 var(--didone); letter-spacing: -.02em; color: transparent; -webkit-text-stroke: 1px #fff; mix-blend-mode: difference; transition: opacity .6s; }
+  #mark.word, #mark2.word { font-size: clamp(70px, 17vw, 300px); }
+  body.in #mark, body.in #mark2 { opacity: 0; }
   body.in #mark:not(.word) { font-size: clamp(200px, 44vw, 720px); }
   .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
          font: 600 16px/1.2 var(--didone); letter-spacing: .03em; text-transform: uppercase; }
@@ -124,15 +127,15 @@ function snap(it) {
   @media (max-width: 700px) {
     #nav { top: 18px; left: 16px; right: 16px; font-size: 13px; }
     #nav .about-link { top: 26px; gap: 22px; }
-    #mark.word { font-size: 14vw; }
-    #rail { width: 100%; top: auto; bottom: 0; height: 96px; }
-    #list { overflow: hidden; display: flex; padding: 0 calc(50vw - 42px); height: 96px; align-items: center; }
+    #mark.word, #mark2.word { font-size: 14vw; }
+    #rail { width: 100%; top: auto; bottom: 0; height: 150px; }
+    #list { overflow: hidden; display: flex; padding: 0 calc(50vw - 42px); height: 150px; align-items: flex-start; padding-top: 6px; overflow: visible; }
     .card { flex: none; width: 84px; height: 96px; justify-content: center; padding: 0; transform-origin: center center; }
     .card .thumb { width: 62px; height: 62px; }
     .card::before, .card::after, .card .tk { display: none; }
     #rail::before, #rail::after { display: none; }
-    #tick { display: block; left: calc(50% - 38px); width: 76px; top: auto; bottom: 10px; height: 76px; border: 0; border-bottom: 1px solid var(--ink); }
-    #tools { bottom: 104px; gap: 14px; font-size: 12px; letter-spacing: 0; }
+    #tick { display: block; left: calc(50% - 34px); width: 68px; top: auto; bottom: 44px; height: 0; border: 0; border-bottom: 1px solid var(--ink); }
+    #tools { bottom: 158px; gap: 14px; font-size: 12px; letter-spacing: 0; }
     #tools label { display: flex; gap: 6px; } #tools input[type=range] { width: 44px; }
     #info { top: 58px; bottom: auto; right: 16px; left: 16px; width: auto; transform: none; flex-direction: row; align-items: flex-start; gap: 12px; }
     #plan { width: 64px; height: 64px; }
@@ -147,6 +150,7 @@ function snap(it) {
 <canvas id="gl"></canvas>
 
 <div id="mark" class="word">TRACCIATO</div>
+<div id="mark2" class="word" aria-hidden="true">TRACCIATO</div>
 <nav id="nav" class="row">
   <button class="set" data-go="domes">48 Objects</button>
   <span class="mid"><a class="home">Index</a></span>
@@ -275,7 +279,8 @@ async function info(it, i) {
 }
 document.getElementById('itext').onclick = e => e.currentTarget.classList.toggle('full');
 const markEl = document.getElementById('mark');
-function setMark(t) { if (markEl.textContent === t) return; markEl.classList.add('swap'); setTimeout(() => { markEl.textContent = t; markEl.classList.toggle('word', t.length > 4); markEl.classList.remove('swap'); }, 250); }
+const mark2 = document.getElementById('mark2');
+function setMark(t) { if (markEl.textContent === t) return; [markEl, mark2].forEach(m => m.classList.add('swap')); setTimeout(() => { [markEl, mark2].forEach(m => { m.textContent = t; m.classList.toggle('word', t.length > 4); m.classList.remove('swap'); }); }, 250); }
 let fade = 1;                             // models rise in on change
 async function show(i) {
   if (i === idx) return; idx = i; const it = list[i];
@@ -314,6 +319,13 @@ function build(s) {
   });
   pos = 0; target = 0; vel = 0; requestAnimationFrame(() => { setPos(0); });
 }
+/* on a phone the rail bends into a semicircle: cards ride an arc of radius ARC, tilting with it */
+const ARC = 300;
+function arc(d, t) {
+  const x = Math.max(-ARC * .98, Math.min(ARC * .98, d)), a = Math.asin(x / ARC);
+  const dx = ARC * Math.sin(a) - d, dy = ARC * (1 - Math.cos(a));
+  return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${(a * 180 / Math.PI).toFixed(1)}deg) scale(${(1.1 - .35 * t).toFixed(3)})`;
+}
 let settle;
 function onScroll() {                     // cards swell as they pass the centre line, like a wheel
   const r = L.getBoundingClientRect(), horiz = innerWidth <= 700, mid = horiz ? r.left + r.width / 2 : r.top + r.height / 2;
@@ -321,7 +333,7 @@ function onScroll() {                     // cards swell as they pass the centre
   [...L.children].forEach((c, i) => {
     const b = c.getBoundingClientRect(), d = (horiz ? b.left + b.width / 2 : b.top + b.height / 2) - mid, a = Math.abs(d);
     const t = Math.min(1, a / (horiz ? 260 : innerHeight / 2));
-    c.style.transform = horiz ? `scale(${1 - .35 * t})` : `perspective(500px) rotateX(${Math.max(-80, Math.min(80, -d / 6))}deg) scale(${1.1 - .3 * t})`;
+    c.style.transform = horiz ? arc(d, t) : `perspective(500px) rotateX(${Math.max(-80, Math.min(80, -d / 6))}deg) scale(${1.1 - .3 * t})`;
     c.style.opacity = Math.max(.08, Math.cos(Math.min(1.45, a / 420)));
     c.querySelector('.tk').style.width = (a < 42 ? 26 : 10) + 'px';
     if (a < bd) { bd = a; best = i; }
