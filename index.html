@@ -435,6 +435,8 @@ renderer.setAnimationLoop(() => {
 });
 const ALL = [...SETS.domes.items, ...SETS.hybrids.items];   // the landing draws at random from both sets
 const shuffle = () => { list = ALL; set = 'landing'; let j; do j = Math.floor(Math.random() * ALL.length); while (j === idx); show(j); };
+const deep = { '#objects': 'domes', '#hybrids': 'hybrids' }[location.hash];   // link straight into a set
+if (deep) setTimeout(() => enter(deep), 300);
 shuffle(); setInterval(() => { if (!entered && !document.hidden) shuffle(); }, 3000);
 </script>
 </body>
