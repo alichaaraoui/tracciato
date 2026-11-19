@@ -48,11 +48,16 @@
   #nav > * { white-space: nowrap; }
   #nav .mid { position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; gap: clamp(14px, 2vw, 30px); align-items: center; opacity: 0; pointer-events: none; transition: opacity .6s; }
   body.in #nav .mid { opacity: 1; pointer-events: auto; transition-delay: .4s; }
-  #nav .about-link { position: absolute; left: 50%; top: 0; transform: translateX(-50%); transition: opacity .4s; }
+  #nav .about-link { position: absolute; left: 50%; top: 0; transform: translateX(-50%); transition: opacity .4s; display: flex; gap: 34px; }
+  #nav .about-link a { cursor: pointer; }
   body.in #nav .about-link { opacity: 0; pointer-events: none; }
-  #about { position: fixed; inset: 0; z-index: 30; background: rgba(255,255,255,.96); display: grid; place-items: center; overflow: auto;
+  .sheet { position: fixed; inset: 0; z-index: 30; background: rgba(255,255,255,.96); display: grid; place-items: center; overflow: auto;
            opacity: 0; pointer-events: none; transition: opacity .5s; padding: 90px 24px; }
-  #about.open { opacity: 1; pointer-events: auto; }
+  .sheet.open { opacity: 1; pointer-events: auto; }
+  .method ol { margin: 18px 0 0 1.2em; } .method li + li { margin-top: 10px; } .method li::marker { font-variant-numeric: lining-nums; }
+  .method .fig { display: block; width: 180px; margin: 22px auto 0; }
+  .method .sub { margin-top: 30px; font: 600 16px/1 var(--didone); letter-spacing: .03em; text-transform: uppercase; }
+  .sheet { place-items: start center; }
   .about-in { max-width: 560px; font: 500 18px/1.5 var(--sans); }
   .about-in p + p { margin-top: 16px; }
   .about-in .quote { font: 500 clamp(30px, 4vw, 48px)/1.1 var(--didone); text-align: center; }
@@ -133,11 +138,34 @@ function snap(it) {
 <nav id="nav" class="row">
   <button class="set" data-go="domes">48 Objects</button>
   <span class="mid"><a class="home">Index</a></span>
-  <a class="about-link" id="aboutBtn">About</a>
+  <span class="about-link"><a id="aboutBtn">About</a><a id="methodBtn">Method</a></span>
   <button class="set" data-go="hybrids">24 Hybrids</button>
 </nav>
 <section id="landing"></section>
-<section id="about">
+<section id="method" class="sheet">
+  <div class="about-in method">
+    <p class="quote">Method</p>
+    <p class="cite">How each of the 48 objects is generated, step by step. Every choice below is drawn at random by the code; nothing is modelled by hand.</p>
+    <img class="fig" src="plans/construction_21.svg" alt="">
+    <ol>
+      <li><b>Figure.</b> Pick a regular polygon and how many rotated copies overlap: one triangle, square, pentagon or hexagon, or two triangles (Sant’Ivo’s star), two squares or two pentagons. Their intersection is the core.</li>
+      <li><b>Sides.</b> Give every side of the core one treatment: an apse, a deep niche, a wall bulging into the room, a concave star point, or a straight wall. When the count is even, two treatments alternate, as at Sant’Ivo.</li>
+      <li><b>Plan.</b> Join the pieces into one room. Sometimes columns are cut into the corners, and sometimes the whole room is stretched into an oval, as at San Carlo. The grey lines in each drawing are these figures; the black is the wall.</li>
+      <li><b>Profile.</b> Measure the distance from the centre to the wall along 720 rays. That profile is what gets carried up, so every level keeps the plan.</li>
+      <li><b>Walls.</b> Raise the profile into walls. Pilasters stand where the profile turns sharply, which is where the construction lines meet. A three-band entablature runs over the top.</li>
+      <li><b>Dome.</b> Either Sant’Ivo type, where the dome keeps the figure and ribs rise from the pilasters, or San Carlo type, where pendentives turn it into an oval with coffers shrinking toward the top.</li>
+      <li><b>Lantern.</b> A second, smaller construction gives the lantern its own figure, ringed with columns and capped by a spiral or a small cupola. Outside, either a drum with a stepped roof or the dome left bare.</li>
+    </ol>
+    <p class="sub">The hybrids</p>
+    <ol>
+      <li><b>Training.</b> A CycleGAN learns to turn plans into sections and back, from 239 plans and a separate set of sections from Borromini’s, Letarouilly’s and De Rossi’s plates. No plan is ever matched to its own section.</li>
+      <li><b>Translated.</b> The network draws a section through a plan front to back, then again side to side. The solid is where both sections and the plan’s footprint overlap; vaults appear where the two sections cross.</li>
+      <li><b>Clashed.</b> The same, but the plan meets two real sections from unrelated buildings.</li>
+    </ol>
+    <a class="close" data-close>Close</a>
+  </div>
+</section>
+<section id="about" class="sheet">
   <div class="about-in">
     <p class="quote">Tracciato</p>
     <p class="cite">The setting-out lines a plan is constructed from, drawn before any wall.</p>
@@ -145,7 +173,7 @@ function snap(it) {
     <p><b>48 Objects.</b> Each plan is built by code from overlapping regular figures, with apses, niches, bowed walls or star points on its sides, sometimes stretched into an oval. The figure is then carried upward into walls, entablature and a Sant’Ivo or San Carlo type dome.</p>
     <p><b>24 Hybrids.</b> A CycleGAN trained on Roman plans and sections, never paired. Translated: the network draws the sections it imagines for a real plan. Clashed: a plan meets a section from another building. The 3D form is where both drawings agree.</p>
     <p class="cite">Ali Chaaraoui, 2026.</p>
-    <a class="close" id="aboutClose">Close</a>
+    <a class="close" data-close>Close</a>
   </div>
 </section>
 <div id="tools" class="row">
@@ -220,15 +248,16 @@ function load(url) {
   return cache[url];
 }
 const META = fetch('objects_meta.json').then(r => r.json());
+const HMETA = fetch('hybrids_meta.json').then(r => r.json());
 const HYB = { translated: 'A real Roman plan, given to the network, which drew the sections it imagined for it. The form is where plan and imagined sections agree.',
               clashed: 'A Roman plan crossed with a section from a different building. Neither drawing was meant for the other; the form is what both allow.' };
 async function info(it, i) {
   const box = document.getElementById('info'); box.classList.add('swap');
-  const meta = set === 'domes' ? (await META)[i] : null;
+  const meta = set === 'domes' ? (await META)[i] : null, hmeta = set === 'domes' ? null : (await HMETA)[`${it.kind}_${it.n}`];
   setTimeout(() => {
     document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : '';
     document.getElementById('ititle').innerHTML = `<b class="inum">${it.n}</b><span>${set === 'domes' ? 'Object · plan and construction' : it.kind + ' hybrid'}</span>`;
-    document.getElementById('itext').textContent = meta ? `${meta.plan} ${meta.dome} ${meta.ext}` : HYB[it.kind];
+    document.getElementById('itext').textContent = meta ? `${meta.plan} ${meta.dome} ${meta.ext}` : (hmeta || HYB[it.kind]);
     box.classList.remove('swap');
   }, 200);
 }
@@ -350,10 +379,11 @@ function leave() {
 }
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => entered ? build(b.dataset.go) : enter(b.dataset.go));
 document.querySelector('#nav .home').onclick = leave;
-const about = document.getElementById('about');
-document.getElementById('aboutBtn').onclick = () => about.classList.add('open');
-document.getElementById('aboutClose').onclick = () => about.classList.remove('open');
-addEventListener('keydown', e => { if (e.key === 'Escape') about.classList.remove('open'); });
+const closeSheets = () => document.querySelectorAll('.sheet').forEach(x => x.classList.remove('open'));
+document.getElementById('aboutBtn').onclick = () => document.getElementById('about').classList.add('open');
+document.getElementById('methodBtn').onclick = () => document.getElementById('method').classList.add('open');
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeSheets);
+addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
 function unmark() { document.querySelectorAll('#nav .set').forEach(b => b.classList.remove('on')); }
 
 /* ---------- tools ---------- */
