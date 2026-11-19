@@ -417,9 +417,8 @@ let introRun = 0;
    then the model and its plan fade in */
 async function intro() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const run = ++introRun;
-  document.body.classList.add('loading'); stage.visible = false;
-  const from = Math.min(list.length - 1, 22) * ITEM, DUR = 1900, t0 = performance.now();
+  const run = ++introRun;   // runs alongside the camera move, the model growing in and the panels fading in
+  const from = Math.min(list.length - 1, 22) * ITEM, DUR = 1500, t0 = performance.now();
   const out = t => 1 - Math.pow(1 - t, 4);
   mode = 'rest'; vel = 0; target = 0;
   L.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
@@ -430,7 +429,6 @@ async function intro() {
   })(t0));
   if (run !== introRun) return;
   setPos(0); target = 0;
-  document.body.classList.remove('loading'); stage.visible = true; trans = 0; if (current) current.scale.setScalar(.0001);
 }
 const idxOr0 = () => Math.max(0, Math.round(pos / ITEM));
 function enter(s) {
