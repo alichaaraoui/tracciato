@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Innanzi</title>
+<title>Tracciato</title>
 <meta name="description" content="Objects generated from Borromini's geometric method, and plan-section hybrids from a CycleGAN.">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -129,7 +129,7 @@ function snap(it) {
 <body>
 <canvas id="gl"></canvas>
 
-<div id="mark" class="word">INNANZI</div>
+<div id="mark" class="word">TRACCIATO</div>
 <nav id="nav" class="row">
   <button class="set" data-go="domes">48 Objects</button>
   <span class="mid"><a class="home">Index</a></span>
@@ -139,9 +139,9 @@ function snap(it) {
 <section id="landing"></section>
 <section id="about">
   <div class="about-in">
-    <p class="quote">“Chi segue altri, non li va mai innanzi.”</p>
-    <p class="cite">Whoever follows others never gets ahead of them. Borromini, after Michelangelo, in the Opus Architectonicum.</p>
-    <p>Innanzi is a set of objects made from Francesco Borromini’s way of drawing. His plans start from a simple figure, two triangles or two squares, and everything else is generated from it: the niches, the pilasters, the dome. The forms here are new; the method is his.</p>
+    <p class="quote">Tracciato</p>
+    <p class="cite">The setting-out lines a plan is constructed from, drawn before any wall.</p>
+    <p>Tracciato is a set of objects made from Francesco Borromini’s way of drawing. His plans start from a simple figure, two triangles or two squares, and everything else is generated from it: the niches, the pilasters, the dome. The forms here are new; the method is his.</p>
     <p><b>48 Objects.</b> Each plan is built by code from overlapping regular figures, with apses, niches, bowed walls or star points on its sides, sometimes stretched into an oval. The figure is then carried upward into walls, entablature and a Sant’Ivo or San Carlo type dome.</p>
     <p><b>24 Hybrids.</b> A CycleGAN trained on Roman plans and sections, never paired. Translated: the network draws the sections it imagines for a real plan. Clashed: a plan meets a section from another building. The 3D form is where both drawings agree.</p>
     <p class="cite">Ali Chaaraoui, 2026. Rendered in three.js; models built in Blender.</p>
@@ -346,7 +346,7 @@ function enter(s) {
 }
 function leave() {
   entered = false; unmark(); idx = -1; shuffle(); document.body.classList.remove('in'); document.getElementById('landing').classList.remove('gone'); document.getElementById('ui').classList.remove('on');
-  controls.enabled = false; camGoal = landingPos.clone(); stageGoalX = 0; setMark('INNANZI');
+  controls.enabled = false; camGoal = landingPos.clone(); stageGoalX = 0; setMark('TRACCIATO');
 }
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => entered ? build(b.dataset.go) : enter(b.dataset.go));
 document.querySelector('#nav .home').onclick = leave;
