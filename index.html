@@ -120,14 +120,26 @@ function snap(it) {
   .card::before, .card::after { content: ""; position: absolute; left: 0; width: 6px; border-top: 1px solid var(--line); }
   .card::before { top: 25%; } .card::after { top: 75%; }
 
+  /* ---------- phone: nav on top, short info under it, controls above a horizontal rail at the bottom ---------- */
   @media (max-width: 700px) {
-    #rail { width: 100%; top: auto; height: 150px; }
-    #list { overflow-x: scroll; overflow-y: hidden; display: flex; scroll-snap-type: x mandatory; padding: 0 calc(50vw - 60px); height: 150px; }
-    .card { flex: none; width: 120px; height: 150px; flex-direction: column; justify-content: center; padding: 0; gap: 4px; transform-origin: center bottom; }
-    .card .thumb { width: 70px; height: 70px; } .card .t { display: none; }
-    #rail::before, #rail::after { display: none; } #tick { display: none; }
-    #nav { left: 20px; right: 20px; } #tools label { display: none; } #info { right: 20px; width: 180px; } #plan { width: 90px; height: 90px; }
-    #landing .top, #landing .bottom { left: 20px; right: 20px; } #landing .bottom { grid-template-columns: 1fr; gap: 14px; } #landing .lede + .lede { display: none; }
+    #nav { top: 18px; left: 16px; right: 16px; font-size: 13px; }
+    #nav .about-link { top: 26px; gap: 22px; }
+    #mark.word { font-size: 14vw; }
+    #rail { width: 100%; top: auto; bottom: 0; height: 96px; }
+    #list { overflow: hidden; display: flex; padding: 0 calc(50vw - 42px); height: 96px; align-items: center; }
+    .card { flex: none; width: 84px; height: 96px; justify-content: center; padding: 0; transform-origin: center center; }
+    .card .thumb { width: 62px; height: 62px; }
+    .card::before, .card::after, .card .tk { display: none; }
+    #rail::before, #rail::after { display: none; }
+    #tick { display: block; left: calc(50% - 38px); width: 76px; top: auto; bottom: 10px; height: 76px; border: 0; border-bottom: 1px solid var(--ink); }
+    #tools { bottom: 104px; gap: 14px; font-size: 12px; letter-spacing: 0; }
+    #tools label { display: flex; gap: 6px; } #tools input[type=range] { width: 44px; }
+    #info { top: 58px; bottom: auto; right: 16px; left: 16px; width: auto; transform: none; flex-direction: row; align-items: flex-start; gap: 12px; }
+    #plan { width: 64px; height: 64px; }
+    #ititle { margin-bottom: 4px; gap: 8px; font-size: 11px; } .inum { font-size: 34px; }
+    #itext { font-size: 13px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+    #itext.full { -webkit-line-clamp: unset; }
+    .about-in { font-size: 16px; }
   }
 </style>
 </head>
@@ -261,6 +273,7 @@ async function info(it, i) {
     box.classList.remove('swap');
   }, 200);
 }
+document.getElementById('itext').onclick = e => e.currentTarget.classList.toggle('full');
 const markEl = document.getElementById('mark');
 function setMark(t) { if (markEl.textContent === t) return; markEl.classList.add('swap'); setTimeout(() => { markEl.textContent = t; markEl.classList.toggle('word', t.length > 4); markEl.classList.remove('swap'); }, 250); }
 let fade = 1;                             // models rise in on change
@@ -321,7 +334,7 @@ const ITEM = 84, horiz = () => innerWidth <= 700;
 let pos = 0, vel = 0, target = 0, mode = 'rest', lastT = 0, lastWheel = 0, dragged = false;
 const maxPos = () => (list.length - 1) * ITEM;
 const nearest = p => Math.max(0, Math.min(list.length - 1, Math.round(p / ITEM)));
-function setPos(p) { pos = p; if (horiz()) L.scrollLeft = p / ITEM * 120; else L.scrollTop = p; onScroll(); }
+function setPos(p) { pos = p; if (horiz()) L.scrollLeft = p; else L.scrollTop = p; onScroll(); }
 function goTo(i, v = vel) { target = nearest(i * ITEM) * ITEM; vel = v; mode = 'spring'; }
 function release(v) {                                  // v in px/s; iOS projection: v/1000 * d/(1-d)
   const projected = pos + v / 1000 * .998 / (1 - .998);
@@ -348,7 +361,7 @@ L.addEventListener('wheel', e => {
 let dragY = 0, dragT = 0;
 L.addEventListener('pointerdown', e => { dragged = false; mode = 'drag'; vel = 0; dragY = horiz() ? e.clientX : e.clientY; dragT = performance.now(); L.setPointerCapture(e.pointerId); });
 L.addEventListener('pointermove', e => {
-  if (mode !== 'drag') return; const y = horiz() ? e.clientX : e.clientY, now = performance.now(), d = (dragY - y) * (horiz() ? ITEM / 120 : 1);
+  if (mode !== 'drag') return; const y = horiz() ? e.clientX : e.clientY, now = performance.now(), d = (dragY - y) * 1;
   if (Math.abs(d) > 0) dragged = dragged || Math.abs(d) > 2;
   vel = .7 * vel + .3 * (d / Math.max(8, now - dragT) * 1000); dragY = y; dragT = now; setPos(rubber(pos + d));
 });
@@ -366,7 +379,8 @@ addEventListener('keydown', e => {
 });
 
 /* ---------- landing ↔ viewer ---------- */
-const landingPos = new THREE.Vector3(6.4, 1.6, 6.4), viewPos = new THREE.Vector3(6.6, 2.8, 6.6);
+const phone = innerWidth <= 700 ? 1.7 : 1;   // phones are narrow: step the camera back
+const landingPos = new THREE.Vector3(6.4, 1.6, 6.4).multiplyScalar(phone), viewPos = new THREE.Vector3(6.6, 2.8, 6.6).multiplyScalar(phone);
 let camGoal = landingPos.clone(), stageGoalX = 0;
 camera.position.copy(landingPos);
 function enter(s) {
