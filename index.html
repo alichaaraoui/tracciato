@@ -87,7 +87,7 @@
   #rail::before, #rail::after { content: ""; position: absolute; left: 0; right: 0; height: 12%; z-index: 2; pointer-events: none; }
   #rail::before { top: 0; background: linear-gradient(var(--bg), transparent); }
   #rail::after { bottom: 0; background: linear-gradient(transparent, var(--bg)); }
-  #list { height: 100%; overflow: hidden; touch-action: none; cursor: grab; scrollbar-width: none; padding: calc(50vh - 42px) 0; }
+  #list { perspective: 700px; perspective-origin: 40% 50%; transform-style: preserve-3d; height: 100%; overflow: hidden; touch-action: none; cursor: grab; scrollbar-width: none; padding: calc(50vh - 42px) 0; }
   #list::-webkit-scrollbar { display: none; }
   .card { height: 84px; display: flex; align-items: center; padding: 0 0 0 37px; cursor: pointer;
           transform-origin: left center; will-change: transform, opacity; }
@@ -215,8 +215,8 @@ renderer.setClearColor(0x000000, 0);   // PMREM leaves an opaque clear colour be
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .01, 100);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.autoRotateSpeed = .5;
 /* a controlled space: no panning, zoom within limits, and a second after you let go the view eases back */
-controls.enablePan = false; controls.zoomSpeed = .7; controls.rotateSpeed = .7;
-controls.minPolarAngle = .25; controls.maxPolarAngle = 1.75;
+controls.enablePan = true; controls.screenSpacePanning = true; controls.zoomSpeed = .7; controls.rotateSpeed = .7; controls.panSpeed = .6;
+controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;   // free to look from below too; the view still eases home after you let go
 let touching = false, letGo = 0;
 controls.addEventListener('start', () => touching = true);
 controls.addEventListener('end', () => { touching = false; letGo = performance.now(); });
@@ -318,11 +318,16 @@ function build(s) {
 }
 /* on a phone the rail bends along a half oval: wide (A) and shallow (B), cards tilt with the curve */
 const OA = 230, OB = 90;
-function arc(d, t) {
-  const x = Math.max(-OA * .96, Math.min(OA * .96, d)), u = x / OA, root = Math.sqrt(1 - u * u);
-  const dy = OB * (1 - root), slope = OB * u / (OA * root);
-  return `translate(${(x - d - pos).toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${(Math.atan(slope) * 180 / Math.PI).toFixed(1)}deg) scale(${(1.1 - .35 * t).toFixed(3)})`;
+/* the rail is a wheel in depth: each card rides a cylinder (radius WHEEL) that turns toward and away
+   from you, under real perspective; the cards themselves never rotate, so every thumbnail stays the same
+   upright isometric view */
+const WHEEL = 330;
+function wheel(d, horiz) {
+  const a = Math.max(-1.45, Math.min(1.45, d / WHEEL)), along = WHEEL * Math.sin(a), z = WHEEL * (Math.cos(a) - 1);
+  return horiz ? `translate3d(${(along - d - pos).toFixed(1)}px, 0, ${z.toFixed(1)}px)`
+               : `translate3d(0, ${(along - d - pos).toFixed(1)}px, ${z.toFixed(1)}px)`;
 }
+const arc = d => wheel(d, true), dial = d => wheel(d, false);
 let settle;
 function onScroll() {                     // cards swell as they pass the centre line, like a wheel
   if (L.scrollTop || L.scrollLeft) { L.scrollTop = 0; L.scrollLeft = 0; }   // positions are ours; never let the browser scroll the list too
@@ -333,8 +338,8 @@ function onScroll() {                     // cards swell as they pass the centre
     if (a > (horiz ? innerWidth : innerHeight)) { c.style.visibility = 'hidden'; continue; }
     c.style.visibility = '';
     const t = Math.min(1, a / (horiz ? 260 : innerHeight / 2));
-    c.style.transform = horiz ? arc(d, t) : `translateY(${-pos}px) perspective(500px) rotateX(${Math.max(-80, Math.min(80, -d / 6))}deg) scale(${1.1 - .3 * t})`;
-    c.style.opacity = Math.max(.08, Math.cos(Math.min(1.45, a / 420)));
+    c.style.transform = horiz ? arc(d, t) : dial(d);
+    c.style.opacity = Math.max(0, Math.cos(Math.min(1.5, a / WHEEL))).toFixed(3); c.style.zIndex = String(1000 - Math.round(a));
     if (!horiz) c.firstChild.style.width = (a < 42 ? 26 : 10) + 'px';
   }
   clearTimeout(settle); settle = setTimeout(() => show(best), 120);
