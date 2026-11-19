@@ -97,6 +97,8 @@
   .card .thumb .mark { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; }
   .card .n { font: 400 30px/1 var(--serif); }
   .card .t { color: var(--soft); margin-top: 6px; }
+  .intro { position: fixed; inset: 0; z-index: 15; pointer-events: none; }
+  .intro img { position: fixed; left: 0; top: 0; object-fit: contain; will-change: transform; }
   #tick { position: fixed; z-index: 5; left: 0; width: 190px; top: calc(50% - 42px); height: 84px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); pointer-events: none; }
   .card { position: relative; transform-style: preserve-3d; }
   .card .tk { position: absolute; left: 0; top: 50%; height: 0; border-top: 1px solid var(--ink); transition: width .25s; }
@@ -401,15 +403,50 @@ const landingPos = new THREE.Vector3(6.4, 1.6, 6.4).multiplyScalar(phone), viewP
 controls.minDistance = viewPos.length() * .45; controls.maxDistance = viewPos.length() * 1.6;
 let camGoal = landingPos.clone(), stageGoalX = 0;
 camera.position.copy(landingPos);
+/* entering a set: its thumbnails gather into a spinning wheel in the centre, then each flies out to its
+   place on the dial */
+let introRun = 0;
+function intro() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const run = ++introRun, rail = document.getElementById('rail'), tick = document.getElementById('tick');
+  document.querySelector('.intro')?.remove();
+  rail.style.transition = 'none'; rail.style.opacity = 0; tick.style.opacity = 0;
+  const layer = document.createElement('div'); layer.className = 'intro'; document.body.appendChild(layer);
+  const items = list.slice(), n = items.length, size = innerWidth <= 700 ? 54 : 74;
+  const R = Math.min(innerWidth, innerHeight) * (innerWidth <= 700 ? .34 : .3), cx = innerWidth / 2, cy = innerHeight / 2;
+  const imgs = items.map(it => { const im = new Image(); im.src = thumbOf(it); im.style.width = im.style.height = size + 'px'; layer.appendChild(im); return im; });
+  const SPIN = 1300, t0 = performance.now();
+  const place = (im, x, y, s) => im.style.transform = `translate(${(x - size / 2).toFixed(1)}px, ${(y - size / 2).toFixed(1)}px) scale(${s.toFixed(3)})`;
+  (function spin(now) {
+    if (run !== introRun) return layer.remove();
+    const t = Math.min(1, (now - t0) / SPIN), grow = 1 - Math.pow(1 - Math.min(1, t * 2.2), 3), turn = (1 - Math.pow(1 - t, 2)) * Math.PI * 1.2;
+    imgs.forEach((im, i) => { const a = -Math.PI / 2 + i / n * Math.PI * 2 + turn; place(im, cx + R * grow * Math.cos(a), cy + R * grow * Math.sin(a), .4 + .6 * grow); });
+    if (t < 1) return requestAnimationFrame(spin);
+    const cards = [...L.children]; let longest = 0;
+    imgs.forEach((im, i) => {
+      const a = -Math.PI / 2 + i / n * Math.PI * 2 + turn, from = `translate(${(cx + R * Math.cos(a) - size / 2).toFixed(1)}px, ${(cy + R * Math.sin(a) - size / 2).toFixed(1)}px) scale(1)`;
+      const th = cards[i]?.querySelector('.thumb'), r = th && cards[i].style.visibility !== 'hidden' ? th.getBoundingClientRect() : null;
+      const onRail = r && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+      const to = onRail ? `translate(${(r.left + r.width / 2 - size / 2).toFixed(1)}px, ${(r.top + r.height / 2 - size / 2).toFixed(1)}px) scale(${(r.width / size).toFixed(3)})` : `translate(${(cx - size / 2).toFixed(1)}px, ${(cy - size / 2).toFixed(1)}px) scale(.2)`;
+      const delay = (onRail ? Math.abs(i - idxOr0()) : n) * 28, dur = 750;
+      longest = Math.max(longest, delay + dur);
+      im.animate([{ transform: from, opacity: 1 }, { transform: to, opacity: onRail ? +cards[i].style.opacity || 1 : 0 }],
+                 { duration: dur, delay, easing: 'cubic-bezier(.65,0,.2,1)', fill: 'forwards' });
+    });
+    setTimeout(() => { if (run !== introRun) return; rail.style.transition = 'opacity .25s'; rail.style.opacity = 1; tick.style.opacity = ''; setTimeout(() => layer.remove(), 260); }, longest);
+  })(t0);
+}
+const idxOr0 = () => Math.max(0, Math.round(pos / ITEM));
 function enter(s) {
   entered = true; document.body.classList.add('in'); document.getElementById('landing').classList.add('gone'); document.getElementById('ui').classList.add('on');
-  controls.enabled = true; camGoal = viewPos.clone(); stageGoalX = 0; build(s);
+  controls.enabled = true; camGoal = viewPos.clone(); stageGoalX = 0; build(s); requestAnimationFrame(() => requestAnimationFrame(intro));
 }
 function leave() {
+  introRun++; document.querySelector('.intro')?.remove(); document.getElementById('rail').style.opacity = ''; document.getElementById('tick').style.opacity = '';
   entered = false; unmark(); idx = -1; shuffle(); document.body.classList.remove('in'); document.getElementById('landing').classList.remove('gone'); document.getElementById('ui').classList.remove('on');
   controls.enabled = false; camGoal = landingPos.clone(); stageGoalX = 0; setMark('TRACCIATO');
 }
-document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => entered ? build(b.dataset.go) : enter(b.dataset.go));
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { if (entered) { build(b.dataset.go); requestAnimationFrame(() => requestAnimationFrame(intro)); } else enter(b.dataset.go); });
 document.querySelector('#nav .home').onclick = leave;
 const closeSheets = () => document.querySelectorAll('.sheet').forEach(x => x.classList.remove('open'));
 document.getElementById('aboutBtn').onclick = () => document.getElementById('about').classList.add('open');
