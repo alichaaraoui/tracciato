@@ -83,22 +83,6 @@
   #itext { font: 500 15px/1.4 var(--sans); }
   .row, #itext { font-variant-numeric: lining-nums; }
 
-  /* ---------- rail thumbnails: each model rendered small, black with white lines ---------- */
-const tr = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-tr.setPixelRatio(2); tr.setSize(128, 128); tr.toneMapping = THREE.ACESFilmicToneMapping;
-const ts = new THREE.Scene(); ts.environment = scene.environment;
-ts.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1)); const tsun = new THREE.DirectionalLight(0xffffff, 3.2); tsun.position.set(3, 5, 2); ts.add(tsun);
-const tcam = new THREE.OrthographicCamera(-1.45, 1.45, 1.45, -1.45, .1, 50); tcam.position.set(5, 5, 5); tcam.lookAt(0, 0, 0);   // true isometric, same for all
-const snaps = {}; let queue = Promise.resolve();
-function snap(it) {
-  return snaps[it.url] ??= (queue = queue.then(async () => {
-    const o = (await load(it.url)).clone(); ts.add(o); const [op, tp] = [clay.opacity, clay.transparent]; clay.opacity = 1; clay.transparent = false; clay.color.set(0x111113); clay.envMapIntensity = .7;
-    tr.render(ts, tcam); clay.opacity = op; clay.transparent = tp; clay.color.set(0x26262a); clay.envMapIntensity = 1.1; ts.remove(o);
-    return tr.domElement.toDataURL();
-  }));
-}
-
-/* ---------- scroll rail ---------- */
   #rail { position: fixed; z-index: 5; top: 0; left: 0; bottom: 0; width: 150px; }
   #rail::before, #rail::after { content: ""; position: absolute; left: 0; right: 0; height: 12%; z-index: 2; pointer-events: none; }
   #rail::before { top: 0; background: linear-gradient(var(--bg), transparent); }
@@ -254,14 +238,18 @@ let current = null, list = [], idx = -1, set = null, entered = false;
 
 function fit(obj) {                       // every model fits a 2-unit box, standing on the ground
   const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
-  const s = 2 / Math.max(size.x, size.y, size.z); obj.scale.setScalar(s); obj.position.set(-c.x * s, -box.min.y * s - 1, -c.z * s);
+  const s = 2 / Math.max(size.x, size.y, size.z); obj.scale.setScalar(s); obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
+  const pivot = new THREE.Group(); pivot.position.y = -1; pivot.add(obj); return pivot;   // scale and turn about the base centre
 }
+const recent = [];
 function load(url) {
+  const k = recent.indexOf(url); if (k >= 0) recent.splice(k, 1); recent.push(url);
+  while (recent.length > 8) { const old = recent.shift(); cache[old]?.then(o => { if (o !== current) o.traverse(m => m.geometry?.dispose()); }); delete cache[old]; }
   if (!cache[url]) cache[url] = new Promise(res => loader.load(url, g => {
     const meshes = []; g.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
     for (const o of meshes) { o.material = clay; o.castShadow = o.receiveShadow = true;
       const e = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 20), ink); e.userData.edge = true; o.add(e); }
-    fit(g.scene); res(g.scene);
+    res(fit(g.scene));
   }));
   return cache[url];
 }
@@ -297,28 +285,20 @@ function drawTitle() {
 }
 document.fonts.load('500 100px Cormorant').then(drawTitle); addEventListener('resize', drawTitle);
 function setMark(t) { if (titleText === t) return; [T0, T1].forEach(m => m.classList.add('swap')); setTimeout(() => { titleText = t; drawTitle(); [T0, T1].forEach(m => m.classList.remove('swap')); }, 250); }
-let fade = 1;                             // models rise in on change
+/* model change: the old one shrinks and turns away while the new one grows in, over ~0.9 s */
+let trans = 1, outgoing = null; const ease = t => 1 - Math.pow(1 - t, 3), back = t => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
 async function show(i) {
   if (i === idx) return; idx = i; const it = list[i];
   if (entered) info(it, i);
   const obj = await load(it.url); if (list[idx] !== it) return;
-  if (current) stage.remove(current); current = obj; stage.add(obj); fade = 0;
+  if (obj === current) return;
+  if (outgoing) stage.remove(outgoing);
+  outgoing = current; current = obj; obj.userData.s = 1; obj.scale.setScalar(.0001); stage.add(obj); trans = 0;
 }
 
-/* ---------- rail thumbnails: each model rendered small, black with white lines ---------- */
-const tr = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-tr.setPixelRatio(2); tr.setSize(128, 128); tr.toneMapping = THREE.ACESFilmicToneMapping;
-const ts = new THREE.Scene(); ts.environment = scene.environment;
-ts.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1)); const tsun = new THREE.DirectionalLight(0xffffff, 3.2); tsun.position.set(3, 5, 2); ts.add(tsun);
-const tcam = new THREE.OrthographicCamera(-1.45, 1.45, 1.45, -1.45, .1, 50); tcam.position.set(5, 5, 5); tcam.lookAt(0, 0, 0);   // true isometric, same for all
-const snaps = {}; let queue = Promise.resolve();
-function snap(it) {
-  return snaps[it.url] ??= (queue = queue.then(async () => {
-    const o = (await load(it.url)).clone(); ts.add(o); const [op, tp] = [clay.opacity, clay.transparent]; clay.opacity = 1; clay.transparent = false; clay.color.set(0x111113); clay.envMapIntensity = .7;
-    tr.render(ts, tcam); clay.opacity = op; clay.transparent = tp; clay.color.set(0x26262a); clay.envMapIntensity = 1.1; ts.remove(o);
-    return tr.domElement.toDataURL();
-  }));
-}
+/* ---------- rail thumbnails: pre-rendered files, black with white lines (rendering them live meant loading all 72 models) ---------- */
+const thumbOf = it => `thumbs/${it.url.split('/').pop().replace('.glb', '.png')}`;
+function snap(it) { return Promise.resolve(thumbOf(it)); }
 
 /* ---------- scroll rail ---------- */
 const L = document.getElementById('list');
@@ -335,25 +315,26 @@ function build(s) {
   });
   pos = 0; target = 0; vel = 0; requestAnimationFrame(() => { setPos(0); }); setTimeout(() => { if (idx < 0) show(0); }, 400);
 }
-/* on a phone the rail bends into a semicircle: cards ride an arc of radius ARC, tilting with it */
-const ARC = 300;
+/* on a phone the rail bends along a half oval: wide (A) and shallow (B), cards tilt with the curve */
+const OA = 230, OB = 90;
 function arc(d, t) {
-  const x = Math.max(-ARC * .98, Math.min(ARC * .98, d)), a = Math.asin(x / ARC);
-  const dx = ARC * Math.sin(a) - d, dy = ARC * (1 - Math.cos(a));
-  return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${(a * 180 / Math.PI).toFixed(1)}deg) scale(${(1.1 - .35 * t).toFixed(3)})`;
+  const x = Math.max(-OA * .96, Math.min(OA * .96, d)), u = x / OA, root = Math.sqrt(1 - u * u);
+  const dy = OB * (1 - root), slope = OB * u / (OA * root);
+  return `translate(${(x - d - pos).toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${(Math.atan(slope) * 180 / Math.PI).toFixed(1)}deg) scale(${(1.1 - .35 * t).toFixed(3)})`;
 }
 let settle;
 function onScroll() {                     // cards swell as they pass the centre line, like a wheel
-  const r = L.getBoundingClientRect(), horiz = innerWidth <= 700, mid = horiz ? r.left + r.width / 2 : r.top + r.height / 2;
-  let best = 0, bd = 1e9;
-  [...L.children].forEach((c, i) => {
-    const b = c.getBoundingClientRect(), d = (horiz ? b.left + b.width / 2 : b.top + b.height / 2) - mid, a = Math.abs(d);
+  const horiz = innerWidth <= 700, cards = L.children, n = cards.length;
+  const best = Math.max(0, Math.min(n - 1, Math.round(pos / ITEM)));
+  for (let i = 0; i < n; i++) {
+    const c = cards[i], d = i * ITEM - pos, a = Math.abs(d);
+    if (a > (horiz ? innerWidth : innerHeight)) { c.style.visibility = 'hidden'; continue; }
+    c.style.visibility = '';
     const t = Math.min(1, a / (horiz ? 260 : innerHeight / 2));
-    c.style.transform = horiz ? arc(d, t) : `perspective(500px) rotateX(${Math.max(-80, Math.min(80, -d / 6))}deg) scale(${1.1 - .3 * t})`;
+    c.style.transform = horiz ? arc(d, t) : `translateY(${-pos}px) perspective(500px) rotateX(${Math.max(-80, Math.min(80, -d / 6))}deg) scale(${1.1 - .3 * t})`;
     c.style.opacity = Math.max(.08, Math.cos(Math.min(1.45, a / 420)));
-    c.querySelector('.tk').style.width = (a < 42 ? 26 : 10) + 'px';
-    if (a < bd) { bd = a; best = i; }
-  });
+    if (!horiz) c.firstChild.style.width = (a < 42 ? 26 : 10) + 'px';
+  }
   clearTimeout(settle); settle = setTimeout(() => show(best), 120);
 }
 /* wheel physics modelled on iOS pickers: momentum with 0.998/ms deceleration, projected to the
@@ -439,8 +420,12 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 renderer.setAnimationLoop(() => {
   if (camGoal) { camera.position.lerp(camGoal, .05); if (camera.position.distanceTo(camGoal) < .01) camGoal = null; }
   stage.position.x += (stageGoalX - stage.position.x) * .05;
-  if (fade < 1) { fade = Math.min(1, fade + .04); const e = 1 - Math.pow(1 - fade, 3); stage.position.y = (1 - e) * -.25; clay.opacity = e; }
-  clay.transparent = fade < 1;
+  if (trans < 1) {
+    trans = Math.min(1, trans + 1 / 55);
+    const tin = Math.max(0, (trans - .25) / .75), tout = Math.min(1, trans / .6);
+    if (outgoing) { const s = outgoing.userData.s * (1 - ease(tout)); outgoing.scale.setScalar(Math.max(s, .0001)); outgoing.rotation.y = ease(tout) * .9; if (tout >= 1) { stage.remove(outgoing); outgoing.rotation.y = 0; outgoing.scale.setScalar(1); outgoing = null; } }
+    current.scale.setScalar(Math.max(back(tin), .0001)); current.rotation.y = (1 - ease(tin)) * -.9;
+  }
   if (entered && !touching && !camGoal && performance.now() - letGo > 1000) {   // ease distance, height and centre back home, keep the turn
     home.setFromVector3(viewPos); const sp = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
     sp.radius += (home.radius - sp.radius) * .05; sp.phi += (home.phi - sp.phi) * .05;
@@ -450,7 +435,7 @@ renderer.setAnimationLoop(() => {
 });
 const ALL = [...SETS.domes.items, ...SETS.hybrids.items];   // the landing draws at random from both sets
 const shuffle = () => { list = ALL; set = 'landing'; let j; do j = Math.floor(Math.random() * ALL.length); while (j === idx); show(j); };
-shuffle(); setInterval(() => { if (!entered && !document.hidden) shuffle(); }, 5000);
+shuffle(); setInterval(() => { if (!entered && !document.hidden) shuffle(); }, 3000);
 </script>
 </body>
 </html>
