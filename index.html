@@ -175,7 +175,7 @@
 <div id="tools" class="row">
   <label>Plan cut <input id="cut" type="range" min="0" max="100" value="100"></label>
   <label>Section cut <input id="dep" type="range" min="0" max="100" value="100"></label>
-  <a class="tog on" id="rot">Rotate</a><a class="tog on" id="edges">Lines</a>
+  <a class="tog on" id="rot">Rotate</a><a class="tog on" id="edges">Lines</a><a id="reset">Reset view</a>
 </div>
 
 <div id="ui">
@@ -422,6 +422,10 @@ function unmark() { document.querySelectorAll('#nav .set').forEach(b => b.classL
 const slider = (id, plane) => document.getElementById(id).oninput = e => plane.constant = -1 + 2.02 * e.target.value / 100;
 slider('cut', cutY); slider('dep', cutZ);
 document.getElementById('rot').onclick = e => { e.preventDefault(); controls.autoRotate = !controls.autoRotate; e.target.classList.toggle('on', controls.autoRotate); };
+/* the view stays wherever you leave it; Reset view eases it back home */
+let homing = false;
+document.getElementById('reset').onclick = () => { homing = true; setTimeout(() => homing = false, 1600); };
+controls.addEventListener('start', () => homing = false);
 document.getElementById('edges').onclick = e => { ink.visible = !ink.visible; e.target.classList.toggle('on', ink.visible); };
 
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); onScroll(); });
@@ -434,7 +438,7 @@ renderer.setAnimationLoop(() => {
     if (outgoing) { const s = outgoing.userData.s * (1 - ease(tout)); outgoing.scale.setScalar(Math.max(s, .0001)); outgoing.rotation.y = ease(tout) * .9; if (tout >= 1) { stage.remove(outgoing); outgoing.rotation.y = 0; outgoing.scale.setScalar(1); outgoing = null; } }
     current.scale.setScalar(Math.max(back(tin), .0001)); current.rotation.y = (1 - ease(tin)) * -.9;
   }
-  if (entered && !touching && !camGoal && performance.now() - letGo > 1000) {   // ease distance, height and centre back home, keep the turn
+  if (entered && homing) {   // ease distance, height and centre back home, keep the turn
     home.setFromVector3(viewPos); const sp = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
     sp.radius += (home.radius - sp.radius) * .05; sp.phi += (home.phi - sp.phi) * .05;
     controls.target.lerp(new THREE.Vector3(), .08); camera.position.setFromSpherical(sp).add(controls.target);
