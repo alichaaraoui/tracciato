@@ -26,20 +26,7 @@
          font: 600 16px/1.2 var(--didone); letter-spacing: .03em; text-transform: uppercase; }
   .row a, .row button { font: inherit; text-transform: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-decoration: none; padding: 0; }
   .row a:hover, .row button:hover, .row .on { text-decoration: underline; text-underline-offset: 3px; }
-  /* the top bar as capsules: the two sets solid black, the rest a hairline outline; hover inverts */
-  #nav a, #nav button { display: inline-block; text-decoration: none !important; padding: 9px 18px 8px; border-radius: 999px;
-                        border: 1px solid var(--ink); line-height: 1; transition: background .25s, color .25s, transform .25s; }
-  #nav a { background: rgba(255,255,255,.85); color: var(--ink); }
-  #nav .set { background: var(--ink); color: var(--bg); }
-  #nav a:hover { background: var(--ink); color: var(--bg); }
-  #nav .set:hover { background: var(--bg); color: var(--ink); }
-  #nav a:active, #nav button:active { transform: scale(.96); }
-  #nav .set::after { content: "  →"; }
-  body.in #nav .set::after { content: ""; }
-  body.in #nav .set:not(.on) { background: var(--bg); color: var(--ink); }
-  body.in #nav .set:not(.on):hover { background: var(--ink); color: var(--bg); }
-  #nav { top: 26px; } #nav .mid, #nav .about-link { top: 0; }
-  @media (max-width: 700px) { #nav a, #nav button { padding: 7px 12px 6px; } }
+
   .rows .row + .row { margin-top: 1px; } .rows + .rows { margin-top: 14px; }
 
   #landing { position: fixed; inset: 0; z-index: 10; padding: 34px 40px; pointer-events: none; transition: opacity .9s ease; }
