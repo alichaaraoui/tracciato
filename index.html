@@ -17,16 +17,11 @@
   /* ---------- poster vibe: a huge didone word behind the object, small bold serif caps spread across the page ---------- */
   :root { --didone: Cormorant, "Trajan Pro", serif; }
   canvas#gl { z-index: 1; }
-  #mark { position: fixed; left: 0; right: 0; top: 50%; transform: translateY(-58%) scaleY(1.32); z-index: 0; text-align: center; pointer-events: none;
-          font: 500 clamp(120px, 27vw, 460px)/.8 var(--didone); letter-spacing: -.02em; color: var(--ink);
-          transition: opacity .6s; white-space: nowrap; }
-  #mark.swap, #mark2.swap { opacity: 0; }
-  /* the title stays behind the model; a hairline copy on top keeps it readable where the model covers it */
-  #mark2 { position: fixed; left: 0; right: 0; top: 50%; z-index: 2; text-align: center; pointer-events: none; white-space: nowrap;
-           transform: translateY(-58%) scaleY(1.32); font: 500 clamp(120px, 27vw, 460px)/.8 var(--didone); letter-spacing: -.02em; color: transparent; -webkit-text-stroke: 1px #fff; mix-blend-mode: difference; transition: opacity .6s; }
-  #mark.word, #mark2.word { font-size: clamp(70px, 17vw, 300px); }
-  body.in #mark, body.in #mark2 { opacity: 0; }
-  body.in #mark:not(.word) { font-size: clamp(200px, 44vw, 720px); }
+  /* the title is drawn twice from the same code: solid black behind the model, and on top a white hairline that is
+     cut away wherever it falls on the letters themselves, so it only shows where it crosses the black model */
+  .title { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity .6s; }
+  #title0 { z-index: 0; } #title1 { z-index: 2; }
+  .title.swap, body.in .title { opacity: 0; }
   .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
          font: 600 16px/1.2 var(--didone); letter-spacing: .03em; text-transform: uppercase; }
   .row a, .row button { font: inherit; text-transform: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-decoration: none; padding: 0; }
@@ -127,7 +122,6 @@ function snap(it) {
   @media (max-width: 700px) {
     #nav { top: 18px; left: 16px; right: 16px; font-size: 13px; }
     #nav .about-link { top: 26px; gap: 22px; }
-    #mark.word, #mark2.word { font-size: 14vw; }
     #rail { width: 100%; top: auto; bottom: 0; height: 150px; }
     #list { overflow: hidden; display: flex; padding: 0 calc(50vw - 42px); height: 150px; align-items: flex-start; padding-top: 6px; overflow: visible; }
     .card { flex: none; width: 84px; height: 96px; justify-content: center; padding: 0; transform-origin: center center; }
@@ -149,8 +143,8 @@ function snap(it) {
 <body>
 <canvas id="gl"></canvas>
 
-<div id="mark" class="word">TRACCIATO</div>
-<div id="mark2" class="word" aria-hidden="true">TRACCIATO</div>
+<canvas id="title0" class="title" aria-label="TRACCIATO"></canvas>
+<canvas id="title1" class="title" aria-hidden="true"></canvas>
 <nav id="nav" class="row">
   <button class="set" data-go="domes">48 Objects</button>
   <span class="mid"><a class="home">Index</a></span>
@@ -286,9 +280,23 @@ async function info(it, i) {
   }, 200);
 }
 document.getElementById('itext').onclick = e => e.currentTarget.classList.toggle('full');
-const markEl = document.getElementById('mark');
-const mark2 = document.getElementById('mark2');
-function setMark(t) { if (markEl.textContent === t) return; [markEl, mark2].forEach(m => m.classList.add('swap')); setTimeout(() => { [markEl, mark2].forEach(m => { m.textContent = t; m.classList.toggle('word', t.length > 4); m.classList.remove('swap'); }); }, 250); }
+const T0 = document.getElementById('title0'), T1 = document.getElementById('title1');
+let titleText = 'TRACCIATO';
+function drawTitle() {
+  const dpr = Math.min(devicePixelRatio, 2), W = innerWidth, H = innerHeight;
+  const fs = W <= 700 ? W * .14 : Math.min(300, Math.max(70, W * .17));
+  for (const [cv, top] of [[T0, false], [T1, true]]) {
+    cv.width = W * dpr; cv.height = H * dpr; const g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr * 1.32, W * dpr / 2, H * dpr / 2);   // stretched tall, like the Roman capitals
+    g.font = `500 ${fs}px Cormorant`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if ('letterSpacing' in g) g.letterSpacing = `${-.02 * fs}px`;
+    if (!top) { g.fillStyle = '#141413'; g.fillText(titleText, 0, 0); continue; }
+    g.lineWidth = 1.6 / 1.32; g.strokeStyle = '#fff'; g.strokeText(titleText, 0, 0);
+    g.globalCompositeOperation = 'destination-out'; g.fillText(titleText, 0, 0);   // keep only the outer half of the line
+  }
+}
+document.fonts.load('500 100px Cormorant').then(drawTitle); addEventListener('resize', drawTitle);
+function setMark(t) { if (titleText === t) return; [T0, T1].forEach(m => m.classList.add('swap')); setTimeout(() => { titleText = t; drawTitle(); [T0, T1].forEach(m => m.classList.remove('swap')); }, 250); }
 let fade = 1;                             // models rise in on change
 async function show(i) {
   if (i === idx) return; idx = i; const it = list[i];
