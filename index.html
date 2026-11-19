@@ -170,8 +170,8 @@ function snap(it) {
     </ol>
     <p class="sub">The hybrids</p>
     <ol>
-      <li><b>Training.</b> A CycleGAN learns to turn plans into sections and back, from 239 plans and a separate set of sections from Borromini’s, Letarouilly’s and De Rossi’s plates. No plan is ever matched to its own section.</li>
-      <li><b>Translated.</b> The network draws a section through a plan front to back, then again side to side. The solid is where both sections and the plan’s footprint overlap; vaults appear where the two sections cross.</li>
+      <li><b>Training.</b> A CycleGAN is trained to turn plans into sections and back, from 239 drawings sorted as plans and a separate set of sections from Borromini’s, Letarouilly’s and De Rossi’s plates. No plan is ever matched to its own section. The sorting was automatic, so some “plans” are facades and views.</li>
+      <li><b>Translated.</b> The network is asked for a section through the drawing front to back, then side to side, and the solid is where both overlap with the footprint. In this first run it mostly echoed its input, so these forms are closer to the drawing pushed through itself than to new sections.</li>
       <li><b>Clashed.</b> The same, but the plan meets two real sections from unrelated buildings.</li>
     </ol>
     <a class="close" data-close>Close</a>
@@ -183,7 +183,7 @@ function snap(it) {
     <p class="cite">The setting-out lines a plan is constructed from, drawn before any wall.</p>
     <p>Tracciato is a set of objects made from Francesco Borromini’s way of drawing. His plans start from a simple figure, two triangles or two squares, and everything else is generated from it: the niches, the pilasters, the dome. The forms here are new; the method is his.</p>
     <p><b>48 Objects.</b> Each plan is built by code from overlapping regular figures, with apses, niches, bowed walls or star points on its sides, sometimes stretched into an oval. The figure is then carried upward into walls, entablature and a Sant’Ivo or San Carlo type dome.</p>
-    <p><b>24 Hybrids.</b> A CycleGAN trained on Roman plans and sections, never paired. Translated: the network draws the sections it imagines for a real plan. Clashed: a plan meets a section from another building. The 3D form is where both drawings agree.</p>
+    <p><b>24 Hybrids.</b> An early experiment: a CycleGAN trained on Roman plans and sections, never paired. Translated: the network was asked to draw a plan’s sections, but mostly echoed the plan. Clashed: a plan meets two real sections from other buildings. The 3D form is where the drawings agree.</p>
     <p class="cite">Ali Chaaraoui, 2026.</p>
     <a class="close" data-close>Close</a>
   </div>
@@ -217,7 +217,7 @@ const pad = i => String(i).padStart(2, '0');
 const SETS = {
   domes: { desc: 'A plan figure held up through walls, giant pilasters and a continuous entablature, resolved into a Sant’Ivo or San Carlo dome and lantern.',
            items: [...Array(48).keys()].map(i => ({ n: pad(i + 1), kind: 'Construction', url: `models/domes/object_${pad(i + 1)}.glb`, thumb: `thumbs/construction_${pad(i + 1)}.svg` })) },
-  hybrids: { desc: 'A CycleGAN trained on unpaired Roman plans and sections. Translated (T): the network draws each plan’s own sections. Clashed (C): plans crossed with unrelated sections.',
+  hybrids: { desc: 'A CycleGAN trained on unpaired Roman plans and sections. Translated: the network’s attempt at each plan’s sections. Clashed: plans crossed with unrelated real sections.',
              items: ['translated', 'clashed'].flatMap(k => [...Array(12).keys()].map(i => ({ n: pad(i), kind: k, url: `models/${k}_${pad(i)}.glb` }))) },
 };
 
@@ -261,7 +261,7 @@ function load(url) {
 }
 const META = fetch('objects_meta.json').then(r => r.json());
 const HMETA = fetch('hybrids_meta.json').then(r => r.json());
-const HYB = { translated: 'A real Roman plan, given to the network, which drew the sections it imagined for it. The form is where plan and imagined sections agree.',
+const HYB = { translated: 'A drawing given to the network, which mostly echoed it back; the form is that drawing pushed through itself.',
               clashed: 'A Roman plan crossed with a section from a different building. Neither drawing was meant for the other; the form is what both allow.' };
 async function info(it, i) {
   const box = document.getElementById('info'); box.classList.add('swap');
