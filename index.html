@@ -45,6 +45,7 @@
   #ui.on > * { pointer-events: auto; } #ui.on > #tick { pointer-events: none; }
   #nav { position: fixed; z-index: 20; top: 34px; left: 40px; right: 40px; }
   #nav > * { white-space: nowrap; }
+  #nav .left { display: flex; gap: clamp(16px, 2.4vw, 36px); }
   #nav .mid { position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; gap: clamp(14px, 2vw, 30px); align-items: center; opacity: 0; pointer-events: none; transition: opacity .6s; }
   body.in #nav .mid { opacity: 1; pointer-events: auto; transition-delay: .4s; }
   #nav .about-link { position: absolute; left: 50%; top: 0; transform: translateX(-50%); transition: opacity .4s; display: flex; gap: 34px; }
@@ -110,6 +111,7 @@
   @media (max-width: 700px) {
     #nav { top: 18px; left: 16px; right: 16px; font-size: 13px; }
     #nav .about-link { top: 26px; gap: 22px; }
+    #nav .mid { top: 26px; }
     #rail { width: 100%; top: auto; bottom: 0; height: 150px; }
     #list { overflow: hidden; display: flex; padding: 0 calc(50vw - 42px); height: 150px; align-items: flex-start; padding-top: 6px; overflow: visible; }
     .card { flex: none; width: 84px; height: 96px; justify-content: center; padding: 0; transform-origin: center center; }
@@ -134,7 +136,7 @@
 <canvas id="title0" class="title" aria-label="TRACCIATO"></canvas>
 <canvas id="title1" class="title" aria-hidden="true"></canvas>
 <nav id="nav" class="row">
-  <button class="set" data-go="domes">Enter objects</button>
+  <span class="left"><button class="set" data-go="domes">Enter objects</button><button class="set" data-go="grammar">Enter grammar</button></span>
   <span class="mid"><a class="home">Index</a></span>
   <span class="about-link"><a id="aboutBtn">About</a><a id="methodBtn">Method</a></span>
   <button class="set" data-go="hybrids">Enter hybrids</button>
@@ -204,6 +206,8 @@ const pad = i => String(i).padStart(2, '0');
 const SETS = {
   domes: { desc: 'A plan figure held up through walls, giant pilasters and a continuous entablature, resolved into a Sant’Ivo or San Carlo dome and lantern.',
            items: [...Array(48).keys()].map(i => ({ n: pad(i + 1), kind: 'Construction', url: `models/domes/object_${pad(i + 1)}.glb`, thumb: `thumbs/construction_${pad(i + 1)}.svg` })) },
+  grammar: { desc: 'Plans derived by a staged grammar of Borromini’s method, extended toward Guarini, then raised into walls, pilasters and vaults from the same figures.',
+             items: [...Array(48).keys()].map(i => ({ n: pad(i + 1), kind: 'Grammar', url: `models/grammar/grammar_${pad(i + 1)}.glb` })) },
   hybrids: { desc: 'A CycleGAN trained on unpaired Roman plans and sections. Translated: the network’s attempt at each plan’s sections. Clashed: plans crossed with unrelated real sections.',
              items: ['translated', 'clashed'].flatMap(k => [...Array(12).keys()].map(i => ({ n: pad(i), kind: k, url: `models/${k}_${pad(i)}.glb` }))) },
 };
@@ -259,14 +263,15 @@ function load(url) {
 }
 const META = fetch('objects_meta.json').then(r => r.json());
 const HMETA = fetch('hybrids_meta.json').then(r => r.json());
+const GMETA = fetch('grammar_meta.json').then(r => r.json());
 const HYB = { translated: 'A drawing given to the network, which mostly echoed it back; the form is that drawing pushed through itself.',
               clashed: 'A Roman plan crossed with a section from a different building. Neither drawing was meant for the other; the form is what both allow.' };
 async function info(it, i) {
   const box = document.getElementById('info'); box.classList.add('swap');
-  const meta = set === 'domes' ? (await META)[i] : null, hmeta = set === 'domes' ? null : (await HMETA)[`${it.kind}_${it.n}`];
+  const meta = set === 'domes' ? (await META)[i] : set === 'grammar' ? (await GMETA)[i] : null, hmeta = set !== 'hybrids' ? null : (await HMETA)[`${it.kind}_${it.n}`];
   setTimeout(() => {
-    document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : `plans/hybrid_${it.n}.png`;
-    document.getElementById('ititle').innerHTML = `<b class="inum">${it.n}</b><span>${set === 'domes' ? 'Object · plan and construction' : it.kind + ' hybrid'}</span>`;
+    document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : set === 'grammar' ? `plans/grammar_${it.n}.svg` : `plans/hybrid_${it.n}.png`;
+    document.getElementById('ititle').innerHTML = `<b class="inum">${it.n}</b><span>${set === 'domes' ? 'Object · plan and construction' : set === 'grammar' ? 'Grammar · plan and construction' : it.kind + ' hybrid'}</span>`;
     document.getElementById('itext').textContent = meta ? `${meta.plan} ${meta.dome} ${meta.ext}` : (hmeta || HYB[it.kind]);
     box.classList.remove('swap');
   }, 200);
@@ -482,9 +487,9 @@ renderer.setAnimationLoop(() => {
   }
   controls.update(); renderer.render(scene, camera);
 });
-const ALL = [...SETS.domes.items, ...SETS.hybrids.items];   // the landing draws at random from both sets
+const ALL = [...SETS.domes.items, ...SETS.grammar.items, ...SETS.hybrids.items];   // the landing draws at random from both sets
 const shuffle = () => { list = ALL; set = 'landing'; let j; do j = Math.floor(Math.random() * ALL.length); while (j === idx); show(j); };
-const deep = { '#objects': 'domes', '#hybrids': 'hybrids' }[location.hash];   // link straight into a set
+const deep = { '#objects': 'domes', '#grammar': 'grammar', '#hybrids': 'hybrids' }[location.hash];   // link straight into a set
 if (deep) setTimeout(() => enter(deep), 300);
 shuffle(); setInterval(() => { if (!entered && !document.hidden) shuffle(); }, 3000);
 </script>
