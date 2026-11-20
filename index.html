@@ -12,6 +12,7 @@
   html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); }
   body { font: 13px/1.4 var(--sans); font-variant-numeric: lining-nums; }
   canvas#gl { position: fixed; inset: 0; display: block; }
+  body.in canvas#gl { cursor: grab; } body.in canvas#gl:active { cursor: grabbing; }
   .cap { font: 500 10px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase; }
 
   /* ---------- poster vibe: a huge didone word behind the object, small bold serif caps spread across the page ---------- */
@@ -180,7 +181,7 @@
 <div id="tools" class="row">
   <label>Plan cut <input id="cut" type="range" min="0" max="100" value="100"></label>
   <label>Section cut <input id="dep" type="range" min="0" max="100" value="100"></label>
-  <a class="tog on" id="rot">Rotate</a><a class="tog on" id="edges">Lines</a><a id="reset">Reset view</a>
+  <a class="tog" id="rot">Rotate</a><a class="tog on" id="edges">Lines</a><a id="reset">Reset view</a>
 </div>
 
 <div id="ui">
@@ -229,7 +230,8 @@ let touching = false, letGo = 0;
 controls.addEventListener('start', () => touching = true);
 controls.addEventListener('end', () => { touching = false; letGo = performance.now(); });
 const home = new THREE.Spherical();
-controls.enabled = false; controls.autoRotate = true;
+controls.enabled = false; controls.autoRotate = false;   // the model only moves when you click and drag
+renderer.domElement.addEventListener('wheel', e => { if (!e.ctrlKey) e.stopImmediatePropagation(); }, { capture: true });  // scrolling doesn't move it; pinch still zooms
 scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1));
 const sun = new THREE.DirectionalLight(0xffffff, 3.2); sun.position.set(3, 5, 2); sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2 }); sun.shadow.radius = 6; scene.add(sun);
