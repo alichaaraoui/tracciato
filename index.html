@@ -231,7 +231,6 @@ controls.addEventListener('start', () => touching = true);
 controls.addEventListener('end', () => { touching = false; letGo = performance.now(); });
 const home = new THREE.Spherical();
 controls.enabled = false; controls.autoRotate = false;   // the model only moves when you click and drag
-renderer.domElement.addEventListener('wheel', e => { if (!e.ctrlKey) e.stopImmediatePropagation(); }, { capture: true });  // scrolling doesn't move it; pinch still zooms
 scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ac, 1.1));
 const sun = new THREE.DirectionalLight(0xffffff, 3.2); sun.position.set(3, 5, 2); sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2 }); sun.shadow.radius = 6; scene.add(sun);
