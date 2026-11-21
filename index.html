@@ -203,6 +203,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
+const VER = '2026-11-21';   // bump on every model update so browsers fetch the new files
 const pad = i => String(i).padStart(2, '0');
 const SETS = {
   domes: { desc: 'A plan figure held up through walls, giant pilasters and a continuous entablature, resolved into a Sant’Ivo or San Carlo dome and lantern.',
@@ -254,7 +255,7 @@ const recent = [];
 function load(url) {
   const k = recent.indexOf(url); if (k >= 0) recent.splice(k, 1); recent.push(url);
   while (recent.length > 8) { const old = recent.shift(); cache[old]?.then(o => { if (o !== current) o.traverse(m => m.geometry?.dispose()); }); delete cache[old]; }
-  if (!cache[url]) cache[url] = new Promise(res => loader.load(url, g => {
+  if (!cache[url]) cache[url] = new Promise(res => loader.load(url + '?v=' + VER, g => {
     const meshes = []; g.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
     for (const o of meshes) { o.material = clay; o.castShadow = o.receiveShadow = true;
       const e = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 20), ink); e.userData.edge = true; o.add(e); }
@@ -271,7 +272,7 @@ async function info(it, i) {
   const box = document.getElementById('info'); box.classList.add('swap');
   const meta = set === 'domes' ? (await META)[i] : set === 'grammar' ? (await GMETA)[i] : null, hmeta = set !== 'hybrids' ? null : (await HMETA)[`${it.kind}_${it.n}`];
   setTimeout(() => {
-    document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : set === 'grammar' ? `plans/grammar_${it.n}.svg` : `plans/hybrid_${it.n}.png`;
+    document.getElementById('plan').src = set === 'domes' ? `plans/construction_${it.n}.svg` : set === 'grammar' ? `plans/grammar_${it.n}.svg?v=${VER}` : `plans/hybrid_${it.n}.png`;
     document.getElementById('ititle').innerHTML = `<b class="inum">${it.n}</b><span>${set === 'domes' ? 'Object · plan and construction' : set === 'grammar' ? 'Grammar · plan and construction' : it.kind + ' hybrid'}</span>`;
     document.getElementById('itext').textContent = meta ? `${meta.plan} ${meta.dome} ${meta.ext}` : (hmeta || HYB[it.kind]);
     box.classList.remove('swap');
@@ -307,7 +308,7 @@ async function show(i) {
 }
 
 /* ---------- rail thumbnails: pre-rendered files, black with white lines (rendering them live meant loading all 72 models) ---------- */
-const thumbOf = it => `thumbs/${it.url.split('/').pop().replace('.glb', '.png')}`;
+const thumbOf = it => `thumbs/${it.url.split('/').pop().replace('.glb', '.png')}?v=${VER}`;
 function snap(it) { return Promise.resolve(thumbOf(it)); }
 
 /* ---------- scroll rail ---------- */
